@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 235" fill="none">
+  <g stroke="#bdd5a2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Legs sit behind the opaque fleece, so no lines enter the body. -->
+    <g fill="#253029">
+      <path d="M94 151h12l-1 47H93z" opacity=".55"/>
+      <path d="M166 151h12l3 47h-12z" opacity=".55"/>
+      <path d="M76 149h16l-3 54H74z"/>
+      <path d="M181 146h15l5 57h-15z"/>
+    </g>
+    <path d="M75 195h15m96 0h14"/>
+    <!-- Closed, scalloped fleece masks the upper ends of all four legs. -->
+    <path fill="#253029" d="M54 139C34 136 31 113 45 102c-9-19 2-38 22-38 2-23 28-34 46-20 14-20 42-18 53 2 23-11 46 2 47 24 20 2 30 22 20 39 11 19 2 39-18 43-7 20-30 26-47 15-15 15-40 16-54 1-20 13-47 1-47-19-6 0-10-4-13-10Z"/>
+    <!-- A short neck, one leaf-shaped ear, and a rounded head in profile. -->
+    <path fill="#253029" d="m215 101 14-3 7 34-17 4"/>
+    <path fill="#253029" d="M235 100c-12-1-21-9-21-20 12-1 23 6 26 17"/>
+    <path fill="#253029" d="M231 96c13-7 27 1 29 14l2 26c1 13-8 22-19 19-10-3-15-16-17-29l-2-13c-1-7 1-13 7-17Z"/>
+    <path d="M249 143h9"/>
+    <!-- Decorative circuitry stays within the fleece. -->
+    <g opacity=".65" stroke-width="1.2">
+      <path d="m71 109 26-30 37 13 24-29 32 24-6 45-35 15-33-18-28 14Z" stroke-dasharray="3 5"/>
+      <path d="m97 79 19 50 18-37 15 55 35-15m-26-69 26 69"/>
+      <circle cx="97" cy="79" r="4" fill="#253029"/>
+      <circle cx="149" cy="147" r="4" fill="#253029"/>
+      <circle cx="190" cy="87" r="4" fill="#253029"/>
+    </g>
+    <path d="M42 216h220" opacity=".2"/>
+  </g>
+  <circle cx="247" cy="116" r="3" fill="#bdd5a2"/>
+</svg>

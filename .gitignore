@@ -1,3 +1,13 @@
 .DS_Store
 PROJECT_BRIEF.md
 CODEX_PROMPT.md
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+tmp/
+*.tmp
+__pycache__/
+*.pyc
+.venv/

@@ -1,0 +1,13 @@
+{
+  "note": "Replace all eight placeholder IDs with available OpenRouter chat model IDs before paid collection. Sample models are fictional and unrelated to real developers.",
+  "models": [
+    { "id": "configure/model-01", "name": "Model 01", "sample_name": "Aster", "family": "Configure family" },
+    { "id": "configure/model-02", "name": "Model 02", "sample_name": "Birch", "family": "Configure family" },
+    { "id": "configure/model-03", "name": "Model 03", "sample_name": "Cairn", "family": "Configure family" },
+    { "id": "configure/model-04", "name": "Model 04", "sample_name": "Dune", "family": "Configure family" },
+    { "id": "configure/model-05", "name": "Model 05", "sample_name": "Ember", "family": "Configure family" },
+    { "id": "configure/model-06", "name": "Model 06", "sample_name": "Fern", "family": "Configure family" },
+    { "id": "configure/model-07", "name": "Model 07", "sample_name": "Grove", "family": "Configure family" },
+    { "id": "configure/model-08", "name": "Model 08", "sample_name": "Harbor", "family": "Configure family" }
+  ]
+}
