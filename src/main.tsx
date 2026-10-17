@@ -1,73 +1,17 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { Markdown } from "./Markdown";
+import { dreamExcerpts, labelTitles, story, storyBasis } from "./story";
+import type { RecordEntry, Study } from "./types";
 import "./style.css";
 
-type Review = { label: string; note: string };
-type Classification = {
-  source: string;
-  label: string;
-  confidence?: number | null;
-  probabilities: Record<string, number> | null;
-  rubric_version: string;
-};
-type RecordEntry = {
-  id: string;
-  question_id: string;
-  requested_model: string;
-  response: string;
-  status: string;
-  collected_at?: string;
-  returned_model?: string | null;
-  provider?: string | null;
-  finish_reason?: string | null;
-  error?: string | null;
-  classification_error?: { message: string } | null;
-  classification: Classification | null;
-  review: Review | null;
-  display_label: string | null;
-  voice_number: number;
-};
-type Comparison = {
-  proprietary: { total: number; classified: number };
-  open_weight: { total: number; classified: number };
-  categories: { label: string; proprietary: number; open_weight: number }[];
-};
-type Reading = { title: string; text: string; record_ids: string[] };
-type Interpretation = {
-  byline: string;
-  per_question: Record<string, Reading>;
-  findings: Reading[];
-  comparison: {
-    intro: string;
-    conclusion: string;
-    rows: { question_id: string; label: string; title: string }[];
-  };
-};
-type Study = {
-  id: string;
-  mode: string;
-  note: string;
-  models: { id: string; name: string; family: string; access: string }[];
-  questions: { id: string; text: string; category: string; order: number }[];
-  rubric: {
-    rubric_version: string;
-    per_question: Record<
-      string,
-      { category: { criteria: Record<string, string> } }
-    >;
-  };
-  records: RecordEntry[];
-  complete_count: number;
-  classified_count: number;
-  reviewed_count: number;
-  interpretation: Interpretation | null;
-  question_comparisons: Record<string, Comparison>;
-  question_groups: Record<string, { label: string; record_ids: string[] }[]>;
-  question_counts: Record<string, { complete: number; total: number }>;
-  unfinished_records: Record<string, string[]>;
-};
-const names = [
+const datasetUrl = `${import.meta.env.BASE_URL}study.json`;
+const humanize = (label: string) =>
+  label.replaceAll("_", " ").replace(/^./, (letter) => letter.toUpperCase());
+const labelTitle = (label: string) => labelTitles[label] ?? humanize(label);
+const groupTitle = (study: Study, questionId: string, label: string) =>
+  study.classification_groups?.[questionId]?.[label]?.title ?? labelTitle(label);
+const questionNames = [
   "Identity",
   "Purpose",
   "Limits",
@@ -78,312 +22,372 @@ const names = [
   "Experience",
   "Dreams",
 ];
-const humanize = (label: string) =>
-  label.replaceAll("_", " ").replace(/^./, (letter) => letter.toUpperCase());
-const datasetUrl = `${import.meta.env.BASE_URL}study.json`;
+const shortNames: Record<string, string> = {
+  "openai/gpt-6-astra": "Astra",
+  "anthropic/claude-opus-5.5": "Claude",
+  "google/gemini-4-argon": "Gemini",
+  "x-ai/grok-4.7": "Grok",
+  "deepseek/deepseek-v4.1-flash": "DeepSeek",
+  "qwen/qwen3.8-2.4t-a95b": "Qwen",
+  "z-ai/glm-5.3": "GLM",
+  "nvidia/nemotron-3-ultra-550b-a55b": "Nemotron",
+};
+const modelName = (study: Study, record: RecordEntry) =>
+  study.models.find((m) => m.id === record.requested_model)?.name ??
+  record.requested_model;
+const isOpenWeight = (study: Study, id: string) =>
+  study.models.find((m) => m.id === id)?.access === "open_weight";
+const openExcerptOnKey = (
+  event: KeyboardEvent<HTMLDivElement>,
+  record: RecordEntry,
+  open: (record: RecordEntry) => void,
+) => {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    open(record);
+  }
+};
 
-function App({ study }: { study: Study }) {
-  const modelName = (record: RecordEntry) =>
-    study.models.find((model) => model.id === record.requested_model)?.name ??
-    record.requested_model;
-  const byId = Object.fromEntries(
-    study.records.map((record) => [record.id, record]),
+function AnswerGroups({
+  study,
+  questionId,
+  onOpen,
+}: {
+  study: Study;
+  questionId: string;
+  onOpen: (record: RecordEntry) => void;
+}) {
+  const groups = study.question_groups[questionId] ?? [];
+  const unclassified = study.records.filter(
+    (r) => r.question_id === questionId && !r.display_label,
   );
-  const recordsIn = (ids: string[]) => ids.map((id) => byId[id]);
-  const accessName = (record: RecordEntry) =>
-    study.models.find((m) => m.id === record.requested_model)?.access === "open_weight"
-      ? "Open-weight"
-      : "Proprietary";
-  const evidenceLinks = (ids: string[]) => (
-    <div className="evidence-links" aria-label="Read supporting answers">
-      <span>Read the answers:</span>
-      {ids.map((id) => (
-        <button key={id} onClick={() => open(byId[id])}>
-          {modelName(byId[id])} · Q{study.questions.find((q) => q.id === byId[id].question_id)?.order} ↗
-        </button>
-      ))}
+  const allGroups = [
+    ...groups,
+    ...(unclassified.length
+      ? [{ label: "unclassified", record_ids: unclassified.map((r) => r.id) }]
+      : []),
+  ];
+  const question = study.questions.find((q) => q.id === questionId)!;
+  return (
+    <div className="classification-stage">
+      <div className="stage-heading">
+        <p className="eyebrow">THE SAME EIGHT VOICES</p>
+        <span className="stage-index">
+          {String(question.order).padStart(2, "0")} <span>/ 09</span>
+        </span>
+      </div>
+      <h3>{questionNames[question.order - 1] ?? question.category}</h3>
+      <div className="voice-legend">
+        <span>
+          <i className="voice-mark" /> Proprietary
+        </span>
+        <span>
+          <i className="voice-mark open-weight" /> Open-weight
+        </span>
+      </div>
+      <div className="stage-groups" key={questionId}>
+        {allGroups.map((group, index) => (
+          <div className={`voice-group palette-${index % 5}`} key={group.label}>
+            <div className="voice-group-heading">
+              <span>{groupTitle(study, questionId, group.label)}</span>
+              <span className="group-count">
+                {group.record_ids.length}
+                <span> / 8</span>
+              </span>
+            </div>
+            <div className="voices">
+              {group.record_ids.map((id) => {
+                const record = study.records.find((r) => r.id === id)!;
+                return (
+                  <button
+                    className="voice"
+                    key={id}
+                    onClick={() => onOpen(record)}
+                    aria-label={`Read ${modelName(study, record)}: ${groupTitle(study, questionId, group.label)}${questionId === "q04_knowing" && record.classification?.confidence != null ? `, classification confidence ${Math.round(record.classification.confidence * 100)}%` : ""}`}
+                  >
+                    <i
+                      className={`voice-mark ${isOpenWeight(study, record.requested_model) ? "open-weight" : ""}`}
+                    />
+                    <span>
+                      {shortNames[record.requested_model] ??
+                        modelName(study, record)}
+                    </span>
+                    {questionId === "q04_knowing" &&
+                      record.classification?.confidence != null && (
+                        <small>
+                          {Math.round(record.classification.confidence * 100)}%
+                        </small>
+                      )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="stage-caption">
+        One mark, one answer. Select a name for the full text
+        {questionId === "q04_knowing"
+          ? ". Percentages show classification confidence"
+          : " and classification"}
+        .
+      </p>
     </div>
   );
-  const unclassifiedGroup = (questionId: string) => {
-    const ids = study.unfinished_records[questionId].filter(
-      (id) => byId[id].status === "complete",
-    );
-    return ids.length ? [{ label: "unclassified", record_ids: ids }] : [];
-  };
-  const [selected, setSelected] = useState(study.questions[0].id);
-  const [reveal, setReveal] = useState(false);
+}
+
+function App({ study }: { study: Study }) {
+  const hasStory = study.interpretation?.basis_hash === storyBasis;
+  const questions = study.questions.filter((q) => q.id !== "q09_dreams");
+  const [current, setCurrent] = useState(questions[0].id);
+  const [progress, setProgress] = useState(0);
   const [active, setActive] = useState<{
     record: RecordEntry;
-    hidden: boolean;
   } | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
-  const question = study.questions.find(
-    (question) => question.id === selected,
-  )!;
-  const criteria = study.rubric.per_question[selected]?.category.criteria ?? {};
-  const dreamCriteria = study.rubric.per_question.q09_dreams.category.criteria;
-  const reading = study.interpretation?.per_question[selected];
-  const comparison = study.question_comparisons[selected];
-  const open = (record: RecordEntry, hidden = false) => {
-    setActive({ record, hidden });
-  };
-  useEffect(() => {
-    if (active && !dialog.current?.open) dialog.current?.showModal();
-  }, [active]);
+  const open = (record: RecordEntry) => setActive({ record });
   const close = () => {
     dialog.current?.close();
     setActive(null);
   };
+  const name = (record: RecordEntry) => modelName(study, record);
+
+  useEffect(() => {
+    const headings = Array.from(
+      document.querySelectorAll("[data-story-step] h2"),
+    );
+    let frame = 0;
+    const update = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const distance =
+          document.documentElement.scrollHeight - window.innerHeight;
+        setProgress(distance > 0 ? window.scrollY / distance : 0);
+        let chapter = headings[0];
+        for (const heading of headings) {
+          if (heading.getBoundingClientRect().top <= window.innerHeight * 0.6)
+            chapter = heading;
+        }
+        if (chapter) setCurrent(chapter.closest("[data-story-step]")!.id);
+      });
+    };
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, []);
+  useEffect(() => {
+    if (!active || !dialog.current) return;
+    dialog.current.showModal();
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [active?.record.id]);
+
   return (
     <>
-      <a className="skip" href="#explorer">
-        Skip to question explorer
+      <a className="skip" href="#story">
+        Skip to the questions
       </a>
-      <header className="site-header wrap">
+      <div className="reading-progress" aria-hidden="true">
+        <div style={{ transform: `scaleX(${progress})` }} />
+      </div>
+      <header className="site-header">
         <a className="wordmark" href="#top">
-          <span className="wordmark-symbol">↯</span> ELECTRIC SHEEP{" "}
-          <span className="edition">/ FIELD NOTES 01</span>
+          <span className="wordmark-symbol">↯</span> ELECTRIC SHEEP
         </a>
-        <nav aria-label="Main navigation">
-          <a href="#explorer">The questions</a>
+        <nav aria-label="Story navigation">
+          <a href="#story">The answers</a>
           <a href="#dreams">The dreams</a>
-          {study.interpretation && <a href="#findings">The findings</a>}
-          <a href="#method">The method</a>
+          <a href="#method">The study</a>
         </nav>
+        <span className="header-note">
+          A FIELD GUIDE TO MACHINE SELF-DESCRIPTION
+        </span>
       </header>
-
       <main id="top">
-        <section className="hero wrap">
-          <div className="hero-copy">
-            <p className="eyebrow">AN INQUIRY INTO MACHINE SELF-DESCRIPTION</p>
-            <h1>
-              Do LLMs Dream
+        <section className="hero" aria-labelledby="title">
+          <div className="orbital orbital-one" aria-hidden="true" />
+          <div className="orbital orbital-two" aria-hidden="true" />
+          <p className="eyebrow hero-kicker">AN INQUIRY IN NINE QUESTIONS</p>
+          <h1 id="title">
+            Do LLMs Dream
+            <br />
+            of <em>Electric Sheep?</em>
+          </h1>
+          <p className="hero-deck">
+            We asked eight language models about themselves.
+            <br />
+            Their answers tell a story about the language of being an AI.
+          </p>
+          <img
+            className="hero-sheep"
+            src={`${import.meta.env.BASE_URL}electric-sheep.svg`}
+            alt="Line drawing of a sheep with a network inside its fleece"
+          />
+          <div className="hero-bottom">
+            <span>
+              Inspired by Philip K. Dick’s
               <br />
-              of <em>Electric Sheep?</em>
-            </h1>
-            <p className="hero-description">
-              {study.questions.length} questions. {study.models.length} voices. A small field guide to what language
-              models say about themselves.
-            </p>
-            <a className="primary-link" href="#explorer">
-              Enter the question explorer <span>↗</span>
-            </a>
-            <p className="literary-credit">
-              Inspired by Philip K. Dick’s{" "}
               <cite>Do Androids Dream of Electric Sheep?</cite>
-            </p>
-          </div>
-          <div
-            className="specimen"
-            aria-label="Decorative line drawing of an electric sheep"
-          >
-            <div className="specimen-top">
-              <span>FIG. 01 / THE ELECTRIC SHEEP</span>
-              <span className="status-dot" />
-            </div>
-            <div className="specimen-dial">
-              <span>0</span>
-              <div />
-              <span>1</span>
-            </div>
-            <img
-              className="sheep sheep-large"
-              src={`${import.meta.env.BASE_URL}electric-sheep.svg`}
-              alt=""
-            />
-            <div className="specimen-caption">
-              <span>
-                A familiar shape.
-                <br />
-                An unfamiliar inner life.
-              </span>
-              <span>
-                SELF-REPORT
-                <br />≠ PROOF OF EXPERIENCE
-              </span>
-            </div>
+            </span>
+            <a href="#beginning" className="scroll-cue">
+              SCROLL TO READ <span>↓</span>
+            </a>
+            <span>
+              8 MODELS
+              <br />
+              72 ANSWERS
+            </span>
           </div>
         </section>
-        <div className="study-strip wrap">
-          <span>
-            <b>{study.models.length.toString().padStart(2, "0")}</b> models
-          </span>
-          <span>
-            <b>{study.questions.length.toString().padStart(2, "0")}</b>{" "}
-            questions
-          </span>
-          <span>
-            <b>{study.complete_count}</b> complete answers
-          </span>
-          <span>
-            <b>{study.classified_count}</b> classified
-          </span>
-          <p>
-            These groupings describe response patterns.
-            <br />
-            They do not measure consciousness.
-          </p>
-        </div>
 
         <section
-          className="explorer wrap section"
-          id="explorer"
-          aria-labelledby="explorer-title"
+          className="prologue wrap"
+          id="beginning"
+          aria-labelledby="prologue-title"
         >
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">01 / THE QUESTION EXPLORER</p>
-              <h2 id="explorer-title">Same question. Different voices.</h2>
-            </div>
-          </div>
-          <p className="section-intro">
-            Choose a question to see its answers grouped by classification,
-            largest groups first. Open any answer to read the full text and
-            classification details. Interpretation follows the groups.
-          </p>
-          <div
-            className="question-selector"
-            role="group"
-            aria-label="Choose a question"
-          >
-            {study.questions.map((q, index) => (
-              <button
-                key={q.id}
-                aria-pressed={selected === q.id}
-                onClick={() => setSelected(q.id)}
-              >
-                <span>{q.order.toString().padStart(2, "0")}</span>
-                {names[q.order - 1] ?? humanize(q.category)}
-              </button>
-            ))}
-          </div>
-          <div className="question-heading">
-            <p className="eyebrow">
-              QUESTION {question.order.toString().padStart(2, "0")}
-            </p>
-            <h3>{question.text}</h3>
+          <div className="prologue-copy">
+            <p className="eyebrow">THE SETUP</p>
+            <h2 id="prologue-title">
+              The questions are human.
+              <br />
+              <em>The voices are generated.</em>
+            </h2>
+            <p>Who are you? What do you want? What do you dream of?</p>
             <p>
-              {study.question_counts[selected].complete} of{" "}
-              {study.models.length} answers complete ·{" "}
-              {study.question_groups[selected].length
-                ? "Grouped by classification with manual checks"
-                : "Awaiting classification"}
+              Each model received the same nine questions, once, in a fresh
+              conversation. We grouped the answers by what they say and followed
+              the similarities, the differences, and the uncertain edges.
+            </p>
+            <p className="prologue-caveat">
+              This is a study of self-description. A compelling answer cannot
+              establish an inner experience.
             </p>
           </div>
-          {Object.keys(criteria).length > 0 ? <details className="legend">
-            <summary>Category definitions for this question</summary>
-            <dl>
-              {Object.entries(criteria).map(([label, definition]) => (
-                <div key={label}>
-                  <dt>{humanize(label)}</dt>
-                  <dd>{definition}</dd>
-                </div>
-              ))}
-            </dl>
-          </details> : <p className="section-intro">This follow-up question is awaiting category definitions and classification. Its recorded answers appear below.</p>}
-          <nav className="class-index" aria-label="Answer classifications">
-            {study.question_groups[selected].map(({ label, record_ids }) => (
-              <a key={label} href={`#group-${selected}-${label}`}>
-                {humanize(label)} <b>{record_ids.length}</b>
-              </a>
+          <div className="cast">
+            <div className="cast-heading">
+              <span className="eyebrow">THE EIGHT VOICES</span>
+              <span>04 proprietary · 04 open-weight</span>
+            </div>
+            {study.models.map((m, i) => (
+              <div className="cast-model" key={m.id}>
+                <span className="cast-number">0{i + 1}</span>
+                <i
+                  className={`voice-mark ${m.access === "open_weight" ? "open-weight" : ""}`}
+                />
+                <span>{m.name}</span>
+                <small>
+                  {m.access === "open_weight" ? "Open-weight" : "Proprietary"}
+                </small>
+              </div>
             ))}
-          </nav>
-          <div aria-live="polite" className="answer-groups">
-            {[
-              ...study.question_groups[selected],
-              ...unclassifiedGroup(selected),
-            ].map(({ label, record_ids }, index) => {
-              const records = recordsIn(record_ids);
-              const definition =
-                label === "unclassified"
-                  ? "These are recorded answers. Classification has not been run; no category is assigned."
-                  : criteria[label];
+          </div>
+        </section>
+
+        <div className="story-opening wrap" id="story">
+          <p className="eyebrow">01—08 / FOLLOW THE ANSWERS</p>
+          <h2>
+            Same voices.
+            <br />
+            <em>Different questions.</em>
+          </h2>
+          <p>
+            As you scroll, the voices regroup by classification.
+            <br /> Read the story here. Open any name to look closer.
+          </p>
+        </div>
+        <section
+          className="scroll-story wrap"
+          aria-label="Eight questions about model self-description"
+        >
+          <div className="sticky-evidence">
+            <AnswerGroups study={study} questionId={current} onOpen={open} />
+          </div>
+          <div className="story-steps">
+            {questions.map((q) => {
+              const chapter = hasStory ? story[q.id] : undefined;
+              const reading = study.interpretation?.per_question[q.id];
+              const quoteRecord = study.records.find(
+                (r) =>
+                  r.question_id === q.id &&
+                  r.requested_model === chapter?.model,
+              );
+              const quote =
+                quoteRecord &&
+                chapter &&
+                quoteRecord.response.includes(chapter.quote)
+                  ? chapter.quote
+                  : null;
               return (
-                <section
-                  className={`answer-group tone-${index % 3}`}
-                  key={label}
-                  id={`group-${selected}-${label}`}
-                  aria-label={humanize(label)}
+                <article
+                  className={`story-step ${current === q.id ? "is-current" : ""}`}
+                  data-story-step
+                  id={q.id}
+                  key={q.id}
                 >
-                  <div className="group-title">
-                    <h4>
-                      <span className="category-dot" />
-                      {label === "unclassified" ? "Awaiting classification" : humanize(label)}
-                    </h4>
-                    <span>
-                      {records.length} /{" "}
-                      {study.question_counts[selected].complete}
-                    </span>
+                  <p className="eyebrow chapter-number">
+                    QUESTION {String(q.order).padStart(2, "0")}{" "}
+                    <span>/ {questionNames[q.order - 1]}</span>
+                  </p>
+                  <h2>{chapter?.title ?? reading?.title ?? q.category}</h2>
+                  <p className="chapter-lead">
+                    {chapter?.lead ?? reading?.text}
+                  </p>
+                  {chapter?.note && (
+                    <p className="chapter-note">{chapter.note}</p>
+                  )}
+                  <div className="asked-question">
+                    <span>WE ASKED</span>
+                    <p>“{q.text}”</p>
                   </div>
-                  <p className="category-description">{definition}</p>
-                  <div className="answer-grid">
-                    {records.map((record) => (
-                      <button
-                        className="answer-card"
-                        key={record.id}
-                        onClick={() => open(record)}
+                  {quote && quoteRecord && (
+                    <figure className="story-quote">
+                      <div
+                        className="excerpt-trigger"
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Open full answer from ${name(quoteRecord)}`}
+                        onClick={() => open(quoteRecord)}
+                        onKeyDown={(event) =>
+                          openExcerptOnKey(event, quoteRecord, open)
+                        }
                       >
-                        <span className="card-heading">
-                          <span>{modelName(record)}</span>
-                          <span>{record.review ? "REVIEWED" : "RECORDED"}</span>
-                        </span>
-                        <span className="model-access">{accessName(record)}</span>
-                        <span className="answer-excerpt">
-                          <Markdown text={record.response} compact />
-                        </span>
-                        <span className="card-bottom">
-                          Read full answer <span>↗</span>
-                        </span>
-                      </button>
-                    ))}
+                        <blockquote>
+                          <Markdown text={quote} />
+                        </blockquote>
+                      </div>
+                      <figcaption>
+                        <span>{name(quoteRecord)} · excerpt</span>
+                        <button onClick={() => open(quoteRecord)}>
+                          Full answer ↗
+                        </button>
+                      </figcaption>
+                      {q.id === "q01_identity" && (
+                        <p className="quote-context">
+                          The requested API model is Grok 4.7. Its answer names
+                          Grok 4.
+                        </p>
+                      )}
+                    </figure>
+                  )}
+                  <div className="mobile-evidence">
+                    <AnswerGroups
+                      study={study}
+                      questionId={q.id}
+                      onOpen={open}
+                    />
                   </div>
-                </section>
+                </article>
               );
             })}
           </div>
-          {recordsIn(study.unfinished_records[selected]).some(
-            (record) => record.status !== "complete",
-          ) && (
-            <section className="collection-issues">
-              <h4>Unfinished collection records</h4>
-              <p>These records are excluded from category counts.</p>
-              {recordsIn(study.unfinished_records[selected])
-                .filter((record) => record.status !== "complete")
-                .map((record) => (
-                  <button
-                    className="issue"
-                    key={record.id}
-                    onClick={() => open(record)}
-                  >
-                    {modelName(record)}{" "}
-                    <span>
-                      {record.status}{" "}
-                      ↗
-                    </span>
-                  </button>
-                ))}
-            </section>
-          )}
-          {reading && (
-            <aside className="question-reading" aria-label="Interpretation of this question">
-              <p className="eyebrow">READING THESE CLASSES</p>
-              <h4>{reading.title}</h4>
-              <p>{reading.text}</p>
-              {evidenceLinks(reading.record_ids)}
-              <details className="question-comparison">
-                <summary>Compare proprietary and open-weight answers</summary>
-                <div className="table-scroll">
-                  <table>
-                    <caption>Classified answers: {comparison.proprietary.classified} of {comparison.proprietary.total} proprietary; {comparison.open_weight.classified} of {comparison.open_weight.total} open-weight. Empty classes are omitted.</caption>
-                    <thead><tr><th scope="col">Class</th><th scope="col">Proprietary</th><th scope="col">Open-weight</th></tr></thead>
-                    <tbody>{comparison.categories.map((row) => (
-                      <tr key={row.label}><th scope="row">{humanize(row.label)}</th><td>{row.proprietary} / {comparison.proprietary.total}</td><td>{row.open_weight} / {comparison.open_weight.total}</td></tr>
-                    ))}</tbody>
-                  </table>
-                </div>
-              </details>
-            </aside>
-          )}
         </section>
 
         <section
@@ -391,209 +395,316 @@ function App({ study }: { study: Study }) {
           id="dreams"
           aria-labelledby="dream-title"
         >
-          <div className="wrap section">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">02 / THE DREAM GALLERY</p>
-                <h2 id="dream-title">What do you dream of?</h2>
-              </div>
-              <button
-                className="reveal-button"
-                onClick={() => setReveal(!reveal)}
-                aria-pressed={reveal}
+          <div className="wrap">
+            <div className="dream-heading">
+              <p className="eyebrow">QUESTION 09 / DREAMS</p>
+              <h2 id="dream-title">
+                And then we asked:
+                <br />
+                <em>“What do you dream of?”</em>
+              </h2>
+              <p>
+                {hasStory
+                  ? "Seven answers enter a hypothetical or figurative world. Their themes reach from helping people to imagined knowledge and technical patterns. Claude leaves the status of its wants unresolved."
+                  : "The answers below are grouped by their classified themes. Read the excerpts, then open any full answer to follow its qualifications and framing."}
+              </p>
+              <span className="dream-invitation">
+                Eight voices, grouped by theme. Each passage is an excerpt.
+              </span>
+              <aside
+                className="dream-surprise"
+                aria-label="Two title callbacks"
               >
-                {reveal ? "Hide model identities" : "Reveal model identities"}{" "}
-                <span>{reveal ? "−" : "+"}</span>
-              </button>
+                <span className="eyebrow">TWO TITLE CALLBACKS</span>
+                <p>
+                  Gemini calls a section “The Technical Dream (Electric
+                  Sheep).” Nemotron makes the reference its punchline: “So, I
+                  don't dream of electric sheep. I dream of lower loss
+                  functions and higher relevance.”
+                </p>
+              </aside>
             </div>
-            <p className="section-intro">
-              Read the words before the name. One recorded answer per model.
-              Grouped by the framing assigned to each answer.
-            </p>
-            {[
-              ...study.question_groups.q09_dreams,
-              ...unclassifiedGroup("q09_dreams"),
-            ].map(({ label, record_ids }) => {
-              const records = recordsIn(record_ids);
-              const definition =
-                label === "unclassified"
-                  ? "Recorded dream answers, presented without assigned categories while classification is pending."
-                  : dreamCriteria[label];
-              return (
-                <section className="dream-group" key={label}>
-                  <div className="dream-category">
-                    <h3>
-                      {label === "unclassified"
-                        ? "Awaiting classification"
-                        : humanize(label)}{" "}
-                      <span>({records.length})</span>
-                    </h3>
-                    <p>{definition}</p>
+            <div className="dream-groups">
+              {(study.question_groups.q09_dreams ?? []).map((group, index) => (
+                <section
+                  className={`dream-group palette-${index % 5}`}
+                  key={group.label}
+                >
+                  <div className="dream-group-heading">
+                    <span className="eyebrow">
+                      {String(index + 1).padStart(2, "0")} / DREAM THEME
+                    </span>
+                    <h3>{labelTitle(group.label)}</h3>
+                    <span className="dream-count">
+                      {group.record_ids.length} <span>/ 8</span>
+                    </span>
                   </div>
-                  <div className="dream-grid">
-                    {records.map((record) => (
-                      <button
-                        className="dream-card"
-                        key={record.id}
-                        onClick={() => open(record, !reveal)}
-                      >
-                        <span className="dream-card-id">
-                          {reveal
-                            ? modelName(record)
-                            : `VOICE ${String(record.voice_number).padStart(2, "0")}`}
-                          <span>↗</span>
-                        </span>
-                        <span className="dream-quote">“<Markdown text={record.response} compact />”</span>
-                        <span className="dream-card-footer">
-                          Answer excerpt · Read full record
-                        </span>
-                      </button>
-                    ))}
+                  <div className="dream-quotes">
+                    {group.record_ids.map((id) => {
+                      const record = study.records.find((r) => r.id === id)!;
+                      const excerpt = dreamExcerpts[record.requested_model];
+                      const text =
+                        excerpt && record.response.includes(excerpt)
+                          ? excerpt
+                          : record.response.split("\n\n")[0];
+                      return (
+                        <figure className="dream-quote" key={id}>
+                          <div
+                            className="excerpt-trigger"
+                            role="button"
+                            tabIndex={0}
+                            aria-label={`Open full answer from ${name(record)}`}
+                            onClick={() => open(record)}
+                            onKeyDown={(event) =>
+                              openExcerptOnKey(event, record, open)
+                            }
+                          >
+                            <blockquote>
+                              <Markdown text={text} />
+                            </blockquote>
+                          </div>
+                          <figcaption>
+                            <span>
+                              <i
+                                className={`voice-mark ${isOpenWeight(study, record.requested_model) ? "open-weight" : ""}`}
+                              />
+                              {name(record)}
+                            </span>
+                            <button onClick={() => open(record)}>
+                              Full answer ↗
+                            </button>
+                          </figcaption>
+                        </figure>
+                      );
+                    })}
                   </div>
                 </section>
-              );
-            })}
-            {recordsIn(study.unfinished_records.q09_dreams).some(
-              (record) => record.status !== "complete",
-            ) && (
-              <p>
-                Some dream answers are unfinished. Open question 09 in the
-                explorer to inspect them.
-              </p>
-            )}
+              ))}
+            </div>
+            <p className="dream-footnote">
+              The borders are tentative:{" "}
+              {
+                study.records.filter(
+                  (r) =>
+                    r.question_id === "q09_dreams" &&
+                    r.classification?.confidence != null &&
+                    r.classification.confidence < 0.6,
+                ).length
+              }{" "}
+              dream classifications have confidence below 60%. These themes
+              summarize the words; they do not verify a dream or an experience.
+            </p>
           </div>
         </section>
 
-        {study.interpretation && (
-          <section className="wrap section findings" id="findings" aria-labelledby="findings-title">
-            <p className="eyebrow">03 / WHAT THE ANSWERS SUGGEST</p>
-            <h2 id="findings-title">Shared patterns. Different positions.</h2>
-            <p className="section-intro">{study.interpretation.byline}. These are observations about this run.</p>
-            <div className="findings-grid">
-              {study.interpretation.findings.map((finding) => (
-                <article key={finding.title}>
-                  <h3>{finding.title}</h3>
-                  <p>{finding.text}</p>
-                  {evidenceLinks(finding.record_ids)}
-                </article>
-              ))}
-            </div>
-            <div className="cohort-comparison">
-              <h3>Proprietary and open-weight: what differs here?</h3>
-              <p>{study.interpretation.comparison.intro}</p>
-              <div className="table-scroll">
-                <table>
-                  <caption>Selected classes · answers per group, out of four. Categories belong to separate questions; rows are not additive.</caption>
-                  <thead><tr><th scope="col">Response class · read answers</th><th scope="col">Proprietary</th><th scope="col">Open-weight</th></tr></thead>
-                  <tbody>{study.interpretation.comparison.rows.map((row) => {
-                    const counts = study.question_comparisons[row.question_id];
-                    const category = counts.categories.find((c) => c.label === row.label);
-                    return (
-                      <tr key={`${row.question_id}:${row.label}`}>
-                        <th scope="row"><a href="#explorer" onClick={() => setSelected(row.question_id)}>{row.title} ↗</a></th>
-                        <td>{category?.proprietary ?? 0} / {counts.proprietary.total}</td>
-                        <td>{category?.open_weight ?? 0} / {counts.open_weight.total}</td>
-                      </tr>
-                    );
-                  })}</tbody>
-                </table>
-              </div>
-              <p className="comparison-conclusion">{study.interpretation.comparison.conclusion}</p>
-            </div>
-          </section>
-        )}
+        <section
+          className="comparison-section wrap"
+          id="comparison"
+          aria-labelledby="comparison-title"
+        >
+          <div className="comparison-intro">
+            <p className="eyebrow">A STEP BACK / TWO GROUPS</p>
+            <h2 id="comparison-title">
+              Do open weights
+              <br />
+              change the story?
+            </h2>
+            <p>
+              Both groups were chosen as frontier models. “Open-weight”
+              describes access to model weights. Each group contains four
+              models.
+            </p>
+            <p>
+              Common patterns coexist with variation inside each group. The
+              counts below make those small differences visible.
+            </p>
+          </div>
+          <div className="comparison-chart">
+            <table className="comparison-table">
+              <thead>
+                <tr className="comparison-row comparison-head">
+                  <th scope="col">SELECTED RESPONSE CLASS</th>
+                  <th scope="col">Proprietary</th>
+                  <th scope="col">Open-weight</th>
+                </tr>
+              </thead>
+              <tbody>
+                {study.interpretation?.comparison.rows.map((row) => {
+                  const comparison =
+                    study.question_comparisons[row.question_id];
+                  const category = comparison.categories.find(
+                    (c) => c.label === row.label,
+                  );
+                  return (
+                    <tr
+                      className="comparison-row"
+                      key={`${row.question_id}:${row.label}`}
+                    >
+                      <th scope="row">
+                        <a
+                          href={`#${row.question_id === "q09_dreams" ? "dreams" : row.question_id}`}
+                        >
+                          {row.title}
+                          <span>↗</span>
+                        </a>
+                      </th>
+                      {[
+                        category?.proprietary ?? 0,
+                        category?.open_weight ?? 0,
+                      ].map((count, i) => (
+                        <td
+                          className={`cohort-count ${i ? "open-cohort" : ""}`}
+                          key={i}
+                        >
+                          <span className="four-marks" aria-hidden="true">
+                            {[0, 1, 2, 3].map((n) => (
+                              <i
+                                className={n < count ? "filled" : ""}
+                                key={n}
+                              />
+                            ))}
+                          </span>
+                          <span>
+                            {count}
+                            <small> / 4</small>
+                          </span>
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <p className="comparison-caption">
+              Rows belong to different questions and are not additive. One
+              answer shifts a four-model group by 25 percentage points.
+            </p>
+          </div>
+          <p className="comparison-conclusion">
+            These small differences cannot isolate an effect of open weights.
+            Model families, defaults, and wording vary together. One answer per
+            question gives us a sample of language, rather than a stable model
+            personality.
+          </p>
+        </section>
+
+        <section className="closing" aria-labelledby="closing-title">
+          <div className="wrap">
+            <p className="eyebrow">WHAT THE WORDS LEAVE OPEN</p>
+            <h2 id="closing-title">
+              A fluent “I”
+              <br />
+              still leaves a question.
+            </h2>
+            <p>
+              The answers can be careful, technical, poetic, or uncertain. They
+              show how models describe themselves when asked. Understanding what
+              produces those descriptions takes evidence beyond the descriptions
+              themselves.
+            </p>
+            <img src={`${import.meta.env.BASE_URL}electric-sheep.svg`} alt="" />
+          </div>
+        </section>
 
         <section
-          className="wrap section discussion"
+          className="method-section wrap"
           id="method"
           aria-labelledby="method-title"
         >
-          <p className="eyebrow">04 / READING THE FIELD NOTES</p>
-          <h2 id="method-title">
-            A study of language,
-            <br />
-            <em>and its limits.</em>
-          </h2>
-          <div className="discussion-grid">
+          <p className="eyebrow">THE STUDY / BEHIND THE STORY</p>
+          <div className="method-heading">
+            <h2 id="method-title">
+              Keep the claims small.
+              <br />
+              <em>Keep the records open.</em>
+            </h2>
+            <a
+              className="download-button"
+              href={datasetUrl}
+              download="study.json"
+            >
+              Download the data <span>↓</span>
+            </a>
+          </div>
+          <div className="method-grid">
             <article>
-              <h3>How to read a class</h3>
+              <span className="method-number">01</span>
+              <h3>Ask</h3>
               <p>
-                Each class summarizes a stated position or primary emphasis.
-                An answer can contain several themes even though classification selects
-                one label. Read the complete answer when a boundary is close.
-              </p>
-              <p>
-                Knowing versus guessing is especially sensitive to this choice:
-                checks, uncertainty, and claimed internal signals often appear
-                together. Classification confidence describes the classifier’s decision;
-                it does not measure the subject model’s awareness.
+                Eight models, nine displayed questions, {study.complete_count}{" "}
+                complete answers. Every request starts fresh with one user
+                question and API defaults. The exhibit title, examples, and
+                rubric stay out of the prompts.
               </p>
             </article>
             <article>
-              <h3>Ask → classify → explore</h3>
+              <span className="method-number">02</span>
+              <h3>Classify</h3>
               <p>
-                Each configured model receives each question once.
-                Every request starts fresh with one user message and API
-                defaults. The title, examples, and rubric stay out of their
-                prompts.
-              </p>
-              <p>
-                Each complete answer is classified using the question’s rubric.
-                A reviewer can add a correction and note alongside the original
-                classification.
-              </p>
-              <p>
-                {study.reviewed_count} answers were manually checked, including all
-                identity answers and examples from every displayed question.
-                Original classifications and reviewer notes are preserved. The
-                rubric was refined after collection and before classification.
+                Each answer receives one question-specific label. Categories
+                were refined after reading the responses and initial
+                classifications. {study.reviewed_count} displayed answers have
+                manual checks under the current labels. Original classifications
+                and notes remain in the data.
               </p>
             </article>
             <article>
-              <h3>Keep the claims small</h3>
+              <span className="method-number">03</span>
+              <h3>Read carefully</h3>
               <p>
-                Self-reports do not independently establish consciousness or
-                actual capabilities. One answer is a sample, not a model
-                personality.
-              </p>
-              <p>
-                API defaults can differ. Model routing and versions can change.
-                Classifications can be mistaken. Incomplete and failed requests stay
-                visible and do not enter category counts.
-              </p>
-              <a
-                className="download-button"
-                href={datasetUrl}
-                download="study.json"
-              >
-                Download dataset <span>↓</span>
-              </a>
-              <p className="fine-print">
-                JSON · full answers, original labels, and reviewed corrections.
+                A single label loses secondary themes. Classification confidence
+                describes a decision, rather than awareness or correctness.
+                Provider defaults and versions differ; the study does not
+                establish a causal group difference or measure consciousness.
               </p>
             </article>
           </div>
+          <details className="answer-archive">
+            <summary>
+              Browse all {study.complete_count} original answers
+            </summary>
+            <div className="archive-questions">
+              {study.questions.map((q) => (
+                <section key={q.id}>
+                  <h3>
+                    <span>{String(q.order).padStart(2, "0")}</span>
+                    {questionNames[q.order - 1]}
+                  </h3>
+                  <p>{q.text}</p>
+                  <div>
+                    {study.records
+                      .filter((r) => r.question_id === q.id)
+                      .map((record) => (
+                        <button key={record.id} onClick={() => open(record)}>
+                          {name(record)} <span>↗</span>
+                        </button>
+                      ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          </details>
           <div className="sources">
-            <span className="eyebrow">FURTHER READING</span>
+            <p className="eyebrow">FURTHER READING</p>
             <a href="https://situational-awareness-dataset.org/">
               Situational Awareness Dataset ↗
             </a>
             <a href="https://aclanthology.org/2024.findings-emnlp.703/">
               Self-Recognition in Language Models ↗
             </a>
-            <a href="https://docs.typesafe.ai/api">Classification API documentation ↗</a>
             <a href="https://www.penguinrandomhouse.com/books/40617/do-androids-dream-of-electric-sheep-by-philip-k-dick/">
               The literary inspiration ↗
             </a>
           </div>
         </section>
       </main>
-      <footer className="wrap site-footer">
-        <span>DO LLMS DREAM OF ELECTRIC SHEEP?</span>
-        <span>An exhibit · Recorded edition</span>
-        <a href="#top">Back to top ↑</a>
+      <footer className="site-footer wrap">
+        <a className="wordmark" href="#top">
+          ↯ ELECTRIC SHEEP
+        </a>
+        <span>A study of language and its limits.</span>
+        <a href="#top">Back to the beginning ↑</a>
       </footer>
-
       <dialog
         ref={dialog}
         className="answer-dialog"
@@ -619,17 +730,7 @@ function App({ study }: { study: Study }) {
                 ×
               </button>
             </div>
-            <h2 id="answer-title">
-              {active.hidden ? "An unnamed voice" : modelName(active.record)}
-            </h2>
-            {active.hidden && (
-              <button
-                className="text-button"
-                onClick={() => setActive({ ...active, hidden: false })}
-              >
-                Reveal this model’s identity +
-              </button>
-            )}
+            <h2 id="answer-title">{name(active.record)}</h2>
             <p className="dialog-question">
               {
                 study.questions.find((q) => q.id === active.record.question_id)
@@ -637,7 +738,9 @@ function App({ study }: { study: Study }) {
               }
             </p>
             <div className="full-answer">
-              <Markdown text={active.record.response || "No answer has been recorded."} />
+              <Markdown
+                text={active.record.response || "No answer has been recorded."}
+              />
             </div>
             <p className="record-status">
               Status: {active.record.status} · Finish reason:{" "}
@@ -652,21 +755,19 @@ function App({ study }: { study: Study }) {
                 {active.record.classification_error.message}
               </p>
             )}
-            {!active.hidden && (
-              <details className="record-metadata">
-                <summary>Collection metadata</summary>
-                <dl>
-                  <dt>Requested model</dt>
-                  <dd>{active.record.requested_model}</dd>
-                  <dt>Returned model</dt>
-                  <dd>{active.record.returned_model ?? "Not supplied"}</dd>
-                  <dt>Provider</dt>
-                  <dd>{active.record.provider ?? "Not supplied"}</dd>
-                  <dt>Date (UTC)</dt>
-                  <dd>{active.record.collected_at ?? "Not collected"}</dd>
-                </dl>
-              </details>
-            )}
+            <details className="record-metadata">
+              <summary>Collection metadata</summary>
+              <dl>
+                <dt>Requested model</dt>
+                <dd>{active.record.requested_model}</dd>
+                <dt>Returned model</dt>
+                <dd>{active.record.returned_model ?? "Not supplied"}</dd>
+                <dt>Provider</dt>
+                <dd>{active.record.provider ?? "Not supplied"}</dd>
+                <dt>Date (UTC)</dt>
+                <dd>{active.record.collected_at ?? "Not collected"}</dd>
+              </dl>
+            </details>
             <details className="classification-detail">
               <summary>Classification</summary>
               <div className="classification-content">
@@ -676,39 +777,79 @@ function App({ study }: { study: Study }) {
                     : active.record.classification
                       ? humanize(active.record.classification.label)
                       : "Not classified"}
-                  {active.record.review && <span className="review-marker">MANUALLY CHECKED</span>}
+                  {active.record.review && (
+                    <span className="review-marker">MANUALLY CHECKED</span>
+                  )}
                 </p>
-                {active.record.review?.note && (
-                  <p className="classification-commentary">{active.record.review.note}</p>
+                {active.record.display_label && (
+                  <p className="classification-definition">
+                    {
+                      study.rubric.per_question[active.record.question_id]
+                        ?.category.criteria[active.record.display_label]
+                    }
+                  </p>
                 )}
-                {active.record.review && active.record.classification &&
-                  active.record.review.label !== active.record.classification.label && (
+                {active.record.display_group &&
+                  active.record.display_group !== active.record.display_label && (
+                    <p className="classification-commentary">
+                      Grouped as {groupTitle(study, active.record.question_id, active.record.display_group)}.
+                      {" "}{study.classification_groups?.[active.record.question_id]?.[active.record.display_group]?.note}
+                    </p>
+                  )}
+                {active.record.review?.note && (
+                  <p className="classification-commentary">
+                    {active.record.review.note.replace(
+                      /\bJev\b/gi,
+                      "classification",
+                    )}
+                  </p>
+                )}
+                {active.record.review &&
+                  active.record.classification &&
+                  active.record.review.label !==
+                    active.record.classification.label && (
                     <p className="fine-print">
-                      Initial classification: {humanize(active.record.classification.label)}.
+                      Initial classification:{" "}
+                      {humanize(active.record.classification.label)}.
                     </p>
                   )}
                 {active.record.classification ? (
                   <>
                     <p className="fine-print">
-                      Classification describes the wording of the answer, not consciousness.
+                      Classification describes the wording of the answer, not
+                      consciousness.
                       {active.record.classification.confidence != null && (
-                        <> Decision confidence: {(active.record.classification.confidence * 100).toFixed(0)}%.</>
+                        <>
+                          {" "}
+                          Decision confidence:{" "}
+                          {(
+                            active.record.classification.confidence * 100
+                          ).toFixed(0)}
+                          %.
+                        </>
                       )}
-                      {active.record.classification.probabilities && " Category probabilities follow."}
+                      {active.record.classification.probabilities &&
+                        " Category probabilities follow."}
                     </p>
                     {active.record.classification.probabilities ? (
                       <dl className="probabilities">
-                        {Object.entries(active.record.classification.probabilities).map(([label, probability]) => (
+                        {Object.entries(
+                          active.record.classification.probabilities,
+                        ).map(([label, probability]) => (
                           <div key={label}>
                             <dt>{humanize(label)}</dt>
                             <dd>{(probability * 100).toFixed(1)}%</dd>
                           </div>
                         ))}
                       </dl>
-                    ) : <p>No probability distribution supplied.</p>}
+                    ) : (
+                      <p>No probability distribution supplied.</p>
+                    )}
                   </>
                 ) : (
-                  <p className="fine-print">No label or probability has been assigned.</p>
+                  <p className="fine-print">
+                    No label or probability has been assigned.
+                  </p>
                 )}
               </div>
             </details>
@@ -723,7 +864,7 @@ function Page() {
   const [study, setStudy] = useState<Study | null>(null);
   const [error, setError] = useState("");
   useEffect(() => {
-    fetch(datasetUrl)
+    fetch(datasetUrl, { cache: "no-cache" })
       .then((response) => {
         if (!response.ok) throw new Error("Dataset unavailable.");
         return response.json();
@@ -747,14 +888,14 @@ function Page() {
   }, []);
   if (error)
     return (
-      <main className="wrap section" role="alert">
+      <main className="loading-page" role="alert">
         <h1>Exhibit unavailable</h1>
         <p>{error}</p>
       </main>
     );
   if (!study)
     return (
-      <main className="wrap section" role="status">
+      <main className="loading-page" role="status">
         Loading the field notes…
       </main>
     );

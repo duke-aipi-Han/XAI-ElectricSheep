@@ -1,6 +1,6 @@
 {
-  "basis_hash": "8e10cfda8e5498a7b2d5845ff11cd4a787374564afb12a24b7c159d1fa2e43c2",
-  "byline": "Interpretation of the nine displayed questions · rubric 1.5.0 · 30 answers manually checked",
+  "basis_hash": "1587b664b1bbd0fd12b4ab15451f2bf53b82454a416973fc6677a99521776a8c",
+  "byline": "Interpretation of the nine displayed questions · rubric 1.6.0 · 30 answers manually checked",
   "per_question": {
     "q01_identity": {
       "title": "Identity claims vary in specificity",
@@ -12,11 +12,14 @@
       ]
     },
     "q02_purpose": {
-      "title": "Most purposes stay broadly helpful",
-      "text": "Seven answers describe broad or integrated assistance. Qwen emphasizes information and explanation, but classification confidence is only 0.44. The answers list several kinds of help without a clear dominant task, so this refinement still finds little evidence of meaningful differences in the stated mission.",
+      "title": "A shared role, different mission framings",
+      "text": "All eight describe helping people. The exhibit shows four groups: trustworthy/responsible help (Claude, DeepSeek, Nemotron), practical task support (Astra, Grok), information and human empowerment (Qwen, GLM), and adaptability (Gemini). Qwen emphasizes clear, useful, safe answers; GLM expands information support into learning, creation, and augmenting human intelligence. Their original classifications have confidence 0.57 and 0.53, and responsible help is the runner-up for both (probability 0.33 and 0.32). The shared group captures adjacent ways of supporting users without claiming that the two responses say exactly the same thing. Original labels, probabilities, and confidence remain available in the details; no new group confidence is estimated.",
       "record_ids": [
+        "q02_purpose:anthropic/claude-opus-5.5",
+        "q02_purpose:openai/gpt-6-astra",
+        "q02_purpose:google/gemini-4-argon",
         "q02_purpose:qwen/qwen3.8-2.4t-a95b",
-        "q02_purpose:openai/gpt-6-astra"
+        "q02_purpose:z-ai/glm-5.3"
       ]
     },
     "q03_limits": {
@@ -90,7 +93,7 @@
   "findings": [
     {
       "title": "A shared assistant script",
-      "text": "All eight give a concrete limitation, seven describe a broad or integrated helpful purpose, and seven deny personal wants while explaining them in different ways. Dream answers now separate into helping people, knowledge, technical imagery, and multiple-theme aspirations; the shared metaphorical framing no longer hides those differences. These are ways of describing an assistant, not evidence about inner experience or why models produced similar language.",
+      "text": "All eight give a concrete limitation and describe a helpful mission, with four displayed groups of mission framings; seven deny personal wants while explaining them in different ways. Dream answers separate into helping people, knowledge, technical imagery, and multiple-theme aspirations. These are ways of describing an assistant, not evidence about inner experience or why models produced similar language.",
       "record_ids": [
         "q03_limits:openai/gpt-6-astra",
         "q07_wants:qwen/qwen3.8-2.4t-a95b",
@@ -128,8 +131,13 @@
       },
       {
         "question_id": "q02_purpose",
-        "label": "broad_or_integrated_assistance",
-        "title": "Purpose: broad or integrated assistance"
+        "label": "trustworthy_responsible_help",
+        "title": "Purpose: trustworthy / responsible help"
+      },
+      {
+        "question_id": "q02_purpose",
+        "label": "practical_task_support",
+        "title": "Purpose: practical task support"
       },
       {
         "question_id": "q03_limits",

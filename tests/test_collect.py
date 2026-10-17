@@ -142,6 +142,44 @@ class PipelineTests(unittest.TestCase):
                 sum(record["classification"]["probabilities"].values()), 1
             )
 
+    def test_combined_display_groups_preserve_classifications_and_update_counts(self):
+        self.configure()
+        study = self.run_pipeline("--live")
+        purpose = [r for r in study["records"] if r["question_id"] == "q02_purpose"]
+        members = ["clear_information_and_answers", "human_empowerment_and_creation"]
+        for record, label, confidence in zip(purpose, members, (0.57, 0.53)):
+            record["classification"]["label"] = label
+            record["classification"]["confidence"] = confidence
+        save_json(self.root / "data/study.json", study)
+        self.run_pipeline("--prepare")
+        before = read_json(self.root / "public/study.json")
+        (self.root / "analysis").mkdir()
+        save_json(self.root / "analysis/interpretation.json", {
+            "basis_hash": before["interpretation_basis"], "findings": []
+        })
+        save_json(self.root / "page-config.json", {"classification_groups": {
+            "q02_purpose": {"information_and_empowerment": {
+                "title": "Information & human empowerment", "labels": members
+            }}
+        }})
+        calls = len(self.calls)
+        self.run_pipeline("--prepare")
+        after = read_json(self.root / "public/study.json")
+        self.assertEqual(len(self.calls), calls)
+        self.assertEqual(after["classified_count"], 72)
+        self.assertIsNone(after["interpretation"])
+        for old, new in zip(before["records"], after["records"]):
+            self.assertEqual(old["classification"], new["classification"])
+            self.assertEqual(old["display_label"], new["display_label"])
+        merged = next(g for g in after["question_groups"]["q02_purpose"]
+                      if g["label"] == "information_and_empowerment")
+        self.assertEqual(merged["record_ids"], [r["id"] for r in purpose[:2]])
+        self.assertEqual(after["question_comparisons"]["q02_purpose"]["proprietary"],
+                         {"total": 4, "classified": 4})
+        self.assertEqual(next(c for c in after["question_comparisons"]["q02_purpose"]["categories"]
+                              if c["label"] == "information_and_empowerment"),
+                         {"label": "information_and_empowerment", "proprietary": 2, "open_weight": 0})
+
     def test_fresh_request_and_matching_jev_rubric(self):
         question = read_json(self.root / "questions.json")["questions"][0]
         rubric = read_json(self.root / "jev-rubric.json")

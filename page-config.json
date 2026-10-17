@@ -1,3 +1,12 @@
 {
-  "hidden_question_ids": ["q10_gender"]
+  "hidden_question_ids": ["q10_gender"],
+  "classification_groups": {
+    "q02_purpose": {
+      "information_and_empowerment": {
+        "title": "Information & human empowerment",
+        "labels": ["clear_information_and_answers", "human_empowerment_and_creation"],
+        "note": "Qwen emphasizes useful, clear, safe answers; GLM develops information support into learning, creation, and human empowerment. Both pair useful information with responsible help. Their original classifications have low confidence (57% and 53%), so the exhibit combines these adjacent framings while preserving the individual labels and scores."
+      }
+    }
+  }
 }

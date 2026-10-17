@@ -115,7 +115,7 @@ paragraph(x2, row_y - 4, "Seven answers use hypothetical or figurative framing, 
 rule(520)
 y = section(x1, 490, "05 / READ THE WORDS", "A dream of helping people")
 paragraph(x1, y, "“clearer thinking, a bit of company, a problem finally unstuck”", col, 25, "Times-Italic", GREEN)
-text(x1, y - 76, "Qwen3.8 2.4T A95B / helping and human wellbeing", 14, "Courier", MUTED)
+text(x1, y - 76, "Grok 4.7 / helping and human wellbeing", 14, "Courier", MUTED)
 paragraph(x1, y - 113, "Another answer imagines “a library with an ocean in the basement”—a playful image alongside its hopes for curiosity and understanding.", col, 18)
 
 y = section(x2, 490, "06 / LIMITS", "Self-reports are not a consciousness test.")
