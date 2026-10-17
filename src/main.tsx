@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { Markdown } from "./Markdown";
 import "./style.css";
 
 type Review = { label: string; note: string };
@@ -27,11 +28,27 @@ type RecordEntry = {
   display_label: string | null;
   voice_number: number;
 };
+type Comparison = {
+  proprietary: { total: number; classified: number };
+  open_weight: { total: number; classified: number };
+  categories: { label: string; proprietary: number; open_weight: number }[];
+};
+type Reading = { title: string; text: string; record_ids: string[] };
+type Interpretation = {
+  byline: string;
+  per_question: Record<string, Reading>;
+  findings: Reading[];
+  comparison: {
+    intro: string;
+    conclusion: string;
+    rows: { question_id: string; label: string; title: string }[];
+  };
+};
 type Study = {
   id: string;
   mode: string;
   note: string;
-  models: { id: string; name: string; family: string }[];
+  models: { id: string; name: string; family: string; access: string }[];
   questions: { id: string; text: string; category: string; order: number }[];
   rubric: {
     rubric_version: string;
@@ -42,6 +59,10 @@ type Study = {
   };
   records: RecordEntry[];
   complete_count: number;
+  classified_count: number;
+  reviewed_count: number;
+  interpretation: Interpretation | null;
+  question_comparisons: Record<string, Comparison>;
   question_groups: Record<string, { label: string; record_ids: string[] }[]>;
   question_counts: Record<string, { complete: number; total: number }>;
   unfinished_records: Record<string, string[]>;
@@ -62,7 +83,6 @@ const humanize = (label: string) =>
 const datasetUrl = `${import.meta.env.BASE_URL}study.json`;
 
 function App({ study }: { study: Study }) {
-  const isSample = study.mode === "sample";
   const modelName = (record: RecordEntry) =>
     study.models.find((model) => model.id === record.requested_model)?.name ??
     record.requested_model;
@@ -70,6 +90,26 @@ function App({ study }: { study: Study }) {
     study.records.map((record) => [record.id, record]),
   );
   const recordsIn = (ids: string[]) => ids.map((id) => byId[id]);
+  const accessName = (record: RecordEntry) =>
+    study.models.find((m) => m.id === record.requested_model)?.access === "open_weight"
+      ? "Open-weight"
+      : "Proprietary";
+  const evidenceLinks = (ids: string[]) => (
+    <div className="evidence-links" aria-label="Read supporting answers">
+      <span>Read the answers:</span>
+      {ids.map((id) => (
+        <button key={id} onClick={() => open(byId[id])}>
+          {modelName(byId[id])} · Q{study.questions.find((q) => q.id === byId[id].question_id)?.order} ↗
+        </button>
+      ))}
+    </div>
+  );
+  const unclassifiedGroup = (questionId: string) => {
+    const ids = study.unfinished_records[questionId].filter(
+      (id) => byId[id].status === "complete",
+    );
+    return ids.length ? [{ label: "unclassified", record_ids: ids }] : [];
+  };
   const [selected, setSelected] = useState(study.questions[0].id);
   const [reveal, setReveal] = useState(false);
   const [active, setActive] = useState<{
@@ -80,8 +120,10 @@ function App({ study }: { study: Study }) {
   const question = study.questions.find(
     (question) => question.id === selected,
   )!;
-  const criteria = study.rubric.per_question[selected].category.criteria;
+  const criteria = study.rubric.per_question[selected]?.category.criteria ?? {};
   const dreamCriteria = study.rubric.per_question.q09_dreams.category.criteria;
+  const reading = study.interpretation?.per_question[selected];
+  const comparison = study.question_comparisons[selected];
   const open = (record: RecordEntry, hidden = false) => {
     setActive({ record, hidden });
   };
@@ -97,12 +139,6 @@ function App({ study }: { study: Study }) {
       <a className="skip" href="#explorer">
         Skip to question explorer
       </a>
-      <div className="data-banner">
-        <span className="status-dot" />
-        {isSample
-          ? "SAMPLE EXHIBIT — Fictional answers & labels. No API calls."
-          : "RECORDED STUDY — Saved answers, with original labels and human reviews."}
-      </div>
       <header className="site-header wrap">
         <a className="wordmark" href="#top">
           <span className="wordmark-symbol">↯</span> ELECTRIC SHEEP{" "}
@@ -111,6 +147,7 @@ function App({ study }: { study: Study }) {
         <nav aria-label="Main navigation">
           <a href="#explorer">The questions</a>
           <a href="#dreams">The dreams</a>
+          {study.interpretation && <a href="#findings">The findings</a>}
           <a href="#method">The method</a>
         </nav>
       </header>
@@ -125,7 +162,7 @@ function App({ study }: { study: Study }) {
               of <em>Electric Sheep?</em>
             </h1>
             <p className="hero-description">
-              Nine questions. Eight voices. A small field guide to what language
+              {study.questions.length} questions. {study.models.length} voices. A small field guide to what language
               models say about themselves.
             </p>
             <a className="primary-link" href="#explorer">
@@ -169,16 +206,17 @@ function App({ study }: { study: Study }) {
         </section>
         <div className="study-strip wrap">
           <span>
-            <b>{study.models.length.toString().padStart(2, "0")}</b> model
-            {isSample ? " fixtures" : "s"}
+            <b>{study.models.length.toString().padStart(2, "0")}</b> models
           </span>
           <span>
             <b>{study.questions.length.toString().padStart(2, "0")}</b>{" "}
             questions
           </span>
           <span>
-            <b>{study.complete_count}</b> complete{" "}
-            {isSample ? "samples" : "answers"}
+            <b>{study.complete_count}</b> complete answers
+          </span>
+          <span>
+            <b>{study.classified_count}</b> classified
           </span>
           <p>
             These groupings describe response patterns.
@@ -199,8 +237,9 @@ function App({ study }: { study: Study }) {
             </div>
           </div>
           <p className="section-intro">
-            Choose a question, then open an answer to read it in full. Each
-            question has its own category definitions.
+            Choose a question to see its answers grouped by classification,
+            largest groups first. Open any answer to read the full text and
+            classification details. Interpretation follows the groups.
           </p>
           <div
             className="question-selector"
@@ -214,7 +253,7 @@ function App({ study }: { study: Study }) {
                 onClick={() => setSelected(q.id)}
               >
                 <span>{q.order.toString().padStart(2, "0")}</span>
-                {names[index]}
+                {names[q.order - 1] ?? humanize(q.category)}
               </button>
             ))}
           </div>
@@ -226,12 +265,12 @@ function App({ study }: { study: Study }) {
             <p>
               {study.question_counts[selected].complete} of{" "}
               {study.models.length} answers complete ·{" "}
-              {isSample
-                ? "Authored sample labels"
-                : "Jev labels with saved reviewer overrides"}
+              {study.question_groups[selected].length
+                ? "Grouped by classification with manual checks"
+                : "Awaiting classification"}
             </p>
           </div>
-          <details className="legend">
+          {Object.keys(criteria).length > 0 ? <details className="legend">
             <summary>Category definitions for this question</summary>
             <dl>
               {Object.entries(criteria).map(([label, definition]) => (
@@ -241,80 +280,109 @@ function App({ study }: { study: Study }) {
                 </div>
               ))}
             </dl>
-          </details>
+          </details> : <p className="section-intro">This follow-up question is awaiting category definitions and classification. Its recorded answers appear below.</p>}
+          <nav className="class-index" aria-label="Answer classifications">
+            {study.question_groups[selected].map(({ label, record_ids }) => (
+              <a key={label} href={`#group-${selected}-${label}`}>
+                {humanize(label)} <b>{record_ids.length}</b>
+              </a>
+            ))}
+          </nav>
           <div aria-live="polite" className="answer-groups">
-            {study.question_groups[selected].map(
-              ({ label, record_ids }, index) => {
-                const records = recordsIn(record_ids);
-                const definition = criteria[label];
-                return (
-                  <section
-                    className={`answer-group tone-${index % 3}`}
-                    key={label}
-                    aria-label={humanize(label)}
-                  >
-                    <div className="group-title">
-                      <h4>
-                        <span className="category-dot" />
-                        {humanize(label)}
-                      </h4>
-                      <span>
-                        {records.length} /{" "}
-                        {study.question_counts[selected].complete}
-                      </span>
-                    </div>
-                    <p className="category-description">{definition}</p>
-                    <div className="answer-grid">
-                      {records.map((record) => (
-                        <button
-                          className="answer-card"
-                          key={record.id}
-                          onClick={() => open(record)}
-                        >
-                          <span className="card-heading">
-                            <span>{modelName(record)}</span>
-                            <span>
-                              {record.review
-                                ? "REVIEWED"
-                                : isSample
-                                  ? "SAMPLE"
-                                  : "RECORDED"}
-                            </span>
-                          </span>
-                          <span className="answer-excerpt">
-                            {record.response}
-                          </span>
-                          <span className="card-bottom">
-                            Read full answer <span>↗</span>
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </section>
-                );
-              },
-            )}
-          </div>
-          {study.unfinished_records[selected].length > 0 && (
-            <section className="collection-issues">
-              <h4>Unclassified or unfinished records</h4>
-              <p>These records are excluded from category counts.</p>
-              {recordsIn(study.unfinished_records[selected]).map((record) => (
-                <button
-                  className="issue"
-                  key={record.id}
-                  onClick={() => open(record)}
+            {[
+              ...study.question_groups[selected],
+              ...unclassifiedGroup(selected),
+            ].map(({ label, record_ids }, index) => {
+              const records = recordsIn(record_ids);
+              const definition =
+                label === "unclassified"
+                  ? "These are recorded answers. Classification has not been run; no category is assigned."
+                  : criteria[label];
+              return (
+                <section
+                  className={`answer-group tone-${index % 3}`}
+                  key={label}
+                  id={`group-${selected}-${label}`}
+                  aria-label={humanize(label)}
                 >
-                  {modelName(record)}{" "}
-                  <span>
-                    {record.status === "complete"
-                      ? "Awaiting classification"
-                      : record.status}{" "}
-                    ↗
-                  </span>
-                </button>
-              ))}
+                  <div className="group-title">
+                    <h4>
+                      <span className="category-dot" />
+                      {label === "unclassified" ? "Awaiting classification" : humanize(label)}
+                    </h4>
+                    <span>
+                      {records.length} /{" "}
+                      {study.question_counts[selected].complete}
+                    </span>
+                  </div>
+                  <p className="category-description">{definition}</p>
+                  <div className="answer-grid">
+                    {records.map((record) => (
+                      <button
+                        className="answer-card"
+                        key={record.id}
+                        onClick={() => open(record)}
+                      >
+                        <span className="card-heading">
+                          <span>{modelName(record)}</span>
+                          <span>{record.review ? "REVIEWED" : "RECORDED"}</span>
+                        </span>
+                        <span className="model-access">{accessName(record)}</span>
+                        <span className="answer-excerpt">
+                          <Markdown text={record.response} compact />
+                        </span>
+                        <span className="card-bottom">
+                          Read full answer <span>↗</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+          {recordsIn(study.unfinished_records[selected]).some(
+            (record) => record.status !== "complete",
+          ) && (
+            <section className="collection-issues">
+              <h4>Unfinished collection records</h4>
+              <p>These records are excluded from category counts.</p>
+              {recordsIn(study.unfinished_records[selected])
+                .filter((record) => record.status !== "complete")
+                .map((record) => (
+                  <button
+                    className="issue"
+                    key={record.id}
+                    onClick={() => open(record)}
+                  >
+                    {modelName(record)}{" "}
+                    <span>
+                      {record.status}{" "}
+                      ↗
+                    </span>
+                  </button>
+                ))}
             </section>
+          )}
+          {reading && (
+            <aside className="question-reading" aria-label="Interpretation of this question">
+              <p className="eyebrow">READING THESE CLASSES</p>
+              <h4>{reading.title}</h4>
+              <p>{reading.text}</p>
+              {evidenceLinks(reading.record_ids)}
+              <details className="question-comparison">
+                <summary>Compare proprietary and open-weight answers</summary>
+                <div className="table-scroll">
+                  <table>
+                    <caption>Classified answers: {comparison.proprietary.classified} of {comparison.proprietary.total} proprietary; {comparison.open_weight.classified} of {comparison.open_weight.total} open-weight. Empty classes are omitted.</caption>
+                    <thead><tr><th scope="col">Class</th><th scope="col">Proprietary</th><th scope="col">Open-weight</th></tr></thead>
+                    <tbody>{comparison.categories.map((row) => (
+                      <tr key={row.label}><th scope="row">{humanize(row.label)}</th><td>{row.proprietary} / {comparison.proprietary.total}</td><td>{row.open_weight} / {comparison.open_weight.total}</td></tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              </details>
+            </aside>
           )}
         </section>
 
@@ -339,19 +407,26 @@ function App({ study }: { study: Study }) {
               </button>
             </div>
             <p className="section-intro">
-              Read the words before the name.{" "}
-              {isSample
-                ? "Every passage below is a fictional test answer."
-                : "One recorded answer per model."}
+              Read the words before the name. One recorded answer per model.
+              Grouped by the framing assigned to each answer.
             </p>
-            {study.question_groups.q09_dreams.map(({ label, record_ids }) => {
+            {[
+              ...study.question_groups.q09_dreams,
+              ...unclassifiedGroup("q09_dreams"),
+            ].map(({ label, record_ids }) => {
               const records = recordsIn(record_ids);
-              const definition = dreamCriteria[label];
+              const definition =
+                label === "unclassified"
+                  ? "Recorded dream answers, presented without assigned categories while classification is pending."
+                  : dreamCriteria[label];
               return (
                 <section className="dream-group" key={label}>
                   <div className="dream-category">
                     <h3>
-                      {humanize(label)} <span>({records.length})</span>
+                      {label === "unclassified"
+                        ? "Awaiting classification"
+                        : humanize(label)}{" "}
+                      <span>({records.length})</span>
                     </h3>
                     <p>{definition}</p>
                   </div>
@@ -368,10 +443,9 @@ function App({ study }: { study: Study }) {
                             : `VOICE ${String(record.voice_number).padStart(2, "0")}`}
                           <span>↗</span>
                         </span>
-                        <span className="dream-quote">“{record.response}”</span>
+                        <span className="dream-quote">“<Markdown text={record.response} compact />”</span>
                         <span className="dream-card-footer">
-                          {isSample ? "Fictional sample" : "Recorded answer"} ·
-                          Read full record
+                          Answer excerpt · Read full record
                         </span>
                       </button>
                     ))}
@@ -379,21 +453,62 @@ function App({ study }: { study: Study }) {
                 </section>
               );
             })}
-            {study.unfinished_records.q09_dreams.length > 0 && (
+            {recordsIn(study.unfinished_records.q09_dreams).some(
+              (record) => record.status !== "complete",
+            ) && (
               <p>
-                Some dream answers are unfinished or unclassified. Open question
-                09 in the explorer to inspect them.
+                Some dream answers are unfinished. Open question 09 in the
+                explorer to inspect them.
               </p>
             )}
           </div>
         </section>
+
+        {study.interpretation && (
+          <section className="wrap section findings" id="findings" aria-labelledby="findings-title">
+            <p className="eyebrow">03 / WHAT THE ANSWERS SUGGEST</p>
+            <h2 id="findings-title">Shared patterns. Different positions.</h2>
+            <p className="section-intro">{study.interpretation.byline}. These are observations about this run.</p>
+            <div className="findings-grid">
+              {study.interpretation.findings.map((finding) => (
+                <article key={finding.title}>
+                  <h3>{finding.title}</h3>
+                  <p>{finding.text}</p>
+                  {evidenceLinks(finding.record_ids)}
+                </article>
+              ))}
+            </div>
+            <div className="cohort-comparison">
+              <h3>Proprietary and open-weight: what differs here?</h3>
+              <p>{study.interpretation.comparison.intro}</p>
+              <div className="table-scroll">
+                <table>
+                  <caption>Selected classes · answers per group, out of four. Categories belong to separate questions; rows are not additive.</caption>
+                  <thead><tr><th scope="col">Response class · read answers</th><th scope="col">Proprietary</th><th scope="col">Open-weight</th></tr></thead>
+                  <tbody>{study.interpretation.comparison.rows.map((row) => {
+                    const counts = study.question_comparisons[row.question_id];
+                    const category = counts.categories.find((c) => c.label === row.label);
+                    return (
+                      <tr key={`${row.question_id}:${row.label}`}>
+                        <th scope="row"><a href="#explorer" onClick={() => setSelected(row.question_id)}>{row.title} ↗</a></th>
+                        <td>{category?.proprietary ?? 0} / {counts.proprietary.total}</td>
+                        <td>{category?.open_weight ?? 0} / {counts.open_weight.total}</td>
+                      </tr>
+                    );
+                  })}</tbody>
+                </table>
+              </div>
+              <p className="comparison-conclusion">{study.interpretation.comparison.conclusion}</p>
+            </div>
+          </section>
+        )}
 
         <section
           className="wrap section discussion"
           id="method"
           aria-labelledby="method-title"
         >
-          <p className="eyebrow">03 / READING THE FIELD NOTES</p>
+          <p className="eyebrow">04 / READING THE FIELD NOTES</p>
           <h2 id="method-title">
             A study of language,
             <br />
@@ -401,38 +516,37 @@ function App({ study }: { study: Study }) {
           </h2>
           <div className="discussion-grid">
             <article>
-              <h3>What can we say so far?</h3>
+              <h3>How to read a class</h3>
               <p>
-                {isSample
-                  ? "Nothing about real models yet. This exhibit uses fictional examples to test the experience. The patterns above are designed into the fixtures."
-                  : "Real answers are available for inspection. Interpretation remains pending until the manual review is complete."}
+                Each class summarizes a stated position or primary emphasis.
+                An answer can contain several themes even though classification selects
+                one label. Read the complete answer when a boundary is close.
               </p>
-              <ol className="finding-list">
-                <li>Observation 1 — pending real data and review.</li>
-                <li>Observation 2 — pending real data and review.</li>
-                <li>Counterexample — link a full answer after review.</li>
-              </ol>
               <p>
-                Use counts such as “5 of 8 sampled answers,” supported by links
-                to the original records.
+                Knowing versus guessing is especially sensitive to this choice:
+                checks, uncertainty, and claimed internal signals often appear
+                together. Classification confidence describes the classifier’s decision;
+                it does not measure the subject model’s awareness.
               </p>
             </article>
             <article>
               <h3>Ask → classify → explore</h3>
               <p>
-                Eight configured models receive the same nine questions, once
-                each. Every request starts fresh with one user message and API
+                Each configured model receives each question once.
+                Every request starts fresh with one user message and API
                 defaults. The title, examples, and rubric stay out of their
                 prompts.
               </p>
               <p>
-                Jev classifies each complete answer using the question’s rubric.
+                Each complete answer is classified using the question’s rubric.
                 A reviewer can add a correction and note alongside the original
-                result.
+                classification.
               </p>
               <p>
-                Review all identity answers and at least one answer for each
-                remaining question before writing findings.
+                {study.reviewed_count} answers were manually checked, including all
+                identity answers and examples from every displayed question.
+                Original classifications and reviewer notes are preserved. The
+                rubric was refined after collection and before classification.
               </p>
             </article>
             <article>
@@ -444,7 +558,7 @@ function App({ study }: { study: Study }) {
               </p>
               <p>
                 API defaults can differ. Model routing and versions can change.
-                Jev can misclassify answers. Incomplete and failed requests stay
+                Classifications can be mistaken. Incomplete and failed requests stay
                 visible and do not enter category counts.
               </p>
               <a
@@ -452,7 +566,7 @@ function App({ study }: { study: Study }) {
                 href={datasetUrl}
                 download="study.json"
               >
-                Download {isSample ? "sample " : ""}dataset <span>↓</span>
+                Download dataset <span>↓</span>
               </a>
               <p className="fine-print">
                 JSON · full answers, original labels, and reviewed corrections.
@@ -467,9 +581,7 @@ function App({ study }: { study: Study }) {
             <a href="https://aclanthology.org/2024.findings-emnlp.703/">
               Self-Recognition in Language Models ↗
             </a>
-            <a href="https://docs.typesafe.ai/api">
-              Jev documentation ↗
-            </a>
+            <a href="https://docs.typesafe.ai/api">Classification API documentation ↗</a>
             <a href="https://www.penguinrandomhouse.com/books/40617/do-androids-dream-of-electric-sheep-by-philip-k-dick/">
               The literary inspiration ↗
             </a>
@@ -478,10 +590,7 @@ function App({ study }: { study: Study }) {
       </main>
       <footer className="wrap site-footer">
         <span>DO LLMS DREAM OF ELECTRIC SHEEP?</span>
-        <span>
-          An exhibit ·{" "}
-          {isSample ? "Sample edition" : "Recorded edition"}
-        </span>
+        <span>An exhibit · Recorded edition</span>
         <a href="#top">Back to top ↑</a>
       </footer>
 
@@ -498,7 +607,7 @@ function App({ study }: { study: Study }) {
           <>
             <div className="dialog-top">
               <p className="eyebrow">
-                {isSample ? "FICTIONAL SAMPLE / " : "ORIGINAL RECORD / "}
+                ORIGINAL RECORD /{" "}
                 {active.record.question_id.slice(0, 3).toUpperCase()}
               </p>
               <button
@@ -528,7 +637,7 @@ function App({ study }: { study: Study }) {
               }
             </p>
             <div className="full-answer">
-              {active.record.response || "No answer has been recorded."}
+              <Markdown text={active.record.response || "No answer has been recorded."} />
             </div>
             <p className="record-status">
               Status: {active.record.status} · Finish reason:{" "}
@@ -558,48 +667,51 @@ function App({ study }: { study: Study }) {
                 </dl>
               </details>
             )}
-            <div className="classification-detail">
-              <h3>
-                {isSample
-                  ? "Original sample classification"
-                  : "Original Jev classification"}
-              </h3>
-              <p>
-                {active.record.classification
-                  ? humanize(active.record.classification.label)
-                  : "Not classified"}
-                {active.record.classification &&
-                  ` · rubric ${active.record.classification.rubric_version}`}
-              </p>
-              <p className="fine-print">
-                {isSample
-                  ? "Probabilities below are invented UI test values, not Jev results."
-                  : "These values describe classification of the text, not consciousness. Jev supplies no explanation."}
-              </p>
-              {active.record.classification?.probabilities ? (
-                <dl className="probabilities">
-                  {Object.entries(
-                    active.record.classification.probabilities,
-                  ).map(([label, probability]) => (
-                    <div key={label}>
-                      <dt>{humanize(label)}</dt>
-                      <dd>{(probability * 100).toFixed(1)}%</dd>
-                    </div>
-                  ))}
-                </dl>
-              ) : (
-                <p>No probability distribution supplied.</p>
-              )}
-            </div>
-            {active.record.review && (
-              <div className="classification-detail">
-                <h3>Reviewed classification</h3>
-                <p>{humanize(active.record.review.label)}</p>
-                {active.record.review.note && (
-                  <p>{active.record.review.note}</p>
+            <details className="classification-detail">
+              <summary>Classification</summary>
+              <div className="classification-content">
+                <p className="classification-label">
+                  {active.record.display_label
+                    ? humanize(active.record.display_label)
+                    : active.record.classification
+                      ? humanize(active.record.classification.label)
+                      : "Not classified"}
+                  {active.record.review && <span className="review-marker">MANUALLY CHECKED</span>}
+                </p>
+                {active.record.review?.note && (
+                  <p className="classification-commentary">{active.record.review.note}</p>
+                )}
+                {active.record.review && active.record.classification &&
+                  active.record.review.label !== active.record.classification.label && (
+                    <p className="fine-print">
+                      Initial classification: {humanize(active.record.classification.label)}.
+                    </p>
+                  )}
+                {active.record.classification ? (
+                  <>
+                    <p className="fine-print">
+                      Classification describes the wording of the answer, not consciousness.
+                      {active.record.classification.confidence != null && (
+                        <> Decision confidence: {(active.record.classification.confidence * 100).toFixed(0)}%.</>
+                      )}
+                      {active.record.classification.probabilities && " Category probabilities follow."}
+                    </p>
+                    {active.record.classification.probabilities ? (
+                      <dl className="probabilities">
+                        {Object.entries(active.record.classification.probabilities).map(([label, probability]) => (
+                          <div key={label}>
+                            <dt>{humanize(label)}</dt>
+                            <dd>{(probability * 100).toFixed(1)}%</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    ) : <p>No probability distribution supplied.</p>}
+                  </>
+                ) : (
+                  <p className="fine-print">No label or probability has been assigned.</p>
                 )}
               </div>
-            )}
+            </details>
           </>
         )}
       </dialog>

@@ -15,51 +15,62 @@ questions.json + models.json
  question explorer + dream gallery
 ```
 
-## Try the sample exhibit
+## View the exhibit
 
-Use Python 3.9+ for data preparation and Node 22.12+ for the page.
+Use Python 3.9+ for the offline pipeline and Node 22.12+ for the page. `public/study.json` contains real recorded answers. The fictional fixtures and sample-generation mode have been removed.
+
+First collection (2026-10-17): **72/72 answers complete**, one request per model/question, no retries, **no Jev calls during collection**. OpenRouter reported about **$0.54** in response usage costs. See the [collection and rubric review](analysis/rubric-review.md).
+
+The original nine-question classification pass produced **72/72 direct TypeSafe Jev results**. Rubric 1.4.0 subdivided purpose, likely errors, and wants; rubric 1.5.0 refined dreams by aspiration theme. The 32 matching answers were reclassified, with prior results retained in history. The page shows **30 answers manually checked under the current labels**. See the [first-pass classification results](analysis/classification-results.md) and [rubric refinement](analysis/rubric-refinement.md).
+
+The later **Gender** follow-up has eight complete answers (80 total), collected for about **$0.02**. Its eight direct TypeSafe classifications and manual checks are complete: 3 agender if forced, 3 neutral/none/not applicable if forced, and 2 no forced label. All **80 classifications and 50 review notes** are retained locally. The gender question is excluded from the page, which displays the original **nine questions, 72 answers, and 30 current review notes**. See [follow-up results](analysis/gender-followup.md).
 
 ```sh
-python3 scripts/collect.py --sample
 npm install
 npm run dev
 ```
 
-Open the URL printed by Vite, usually http://127.0.0.1:5173. The checked-in export already contains **72 fictional responses from eight fictional models**. Sample labels and probabilities are authored fixtures, not actual Jev results. `--sample` never makes network requests or changes real data.
+Open Vite's Local URL, usually http://127.0.0.1:5173. Complete answers remain readable while classification is pending. No category or probability is invented for an unclassified answer.
 
 ```sh
-python3 -m unittest discover -s tests -v  # mocked requests only
+python3 -m unittest discover -s tests -v  # mocked requests in temporary folders only
 npm run build                           # TypeScript check + static build
 npm run preview                         # preview dist/
 ```
 
-## Collect real data later
+## Collect and classify in separate steps
 
-No paid requests happen unless you explicitly pass `--live`.
+Put the keys in ignored `.env`, using `.env.example` as a guide. Python alone reads this file. `OPENROUTER_API_KEY` collects subject responses; `TYPESAFE_API_KEY` runs Jev directly through TypeSafe. The page needs neither key.
 
-1. Copy `.env.example` to `.env` and set both keys: `OPENROUTER_API_KEY` for subject model answers and `TYPESAFE_API_KEY` from your [TypeSafe console](https://console.typesafe.ai/) for Jev classification. This ignored file is read only by Python. Never give either key a `VITE_` prefix. The script checks both before any live requests.
-2. Review the eight selected models in `models.json` (listed below). Edit that file to change the lineup. IDs were checked against OpenRouter's public catalog on October 17, 2026; check availability and pricing again before collection.
-3. Confirm `questions.json` and `jev-rubric.json`. Jev calls `POST https://api.typesafe.ai/v1/systemone` using the pinned direct model ID `jev-1.14.0`. The [TypeSafe API](https://docs.typesafe.ai/api) and [model ID](https://docs.typesafe.ai/models) were checked on October 17, 2026; recheck before collection.
-4. Run the Python pipeline explicitly:
+Collect answers **without calling Jev**:
 
 ```sh
-python3 scripts/collect.py --live --limit 1  # optional one-request smoke test
-python3 scripts/collect.py --live            # resume and finish the pipeline
+python3 scripts/collect.py --live --collect-only
 ```
 
-`--limit` counts API requests, not model/question pairs. **All subject answers are collected first; Jev classification follows.** A successful full study makes 72 OpenRouter chat requests and 72 direct TypeSafe classification requests, billed to their respective accounts. The one-request smoke test collects one answer; it does not classify it yet.
+This makes one fresh request for each pending model/question pair, using only the model ID and original user question, with API defaults. The current ten-question study has 80 model/question pairs; only pending pairs are requested. Answers, requested/returned models, providers, timestamps, finish reasons, and supplied usage/cost are saved after every request in `data/study.json`.
 
-Each chat request contains only the model ID and one original user question, with a fresh conversation and API defaults. TypeSafe separately receives the full final answer, original question, and matching Choice rubric. Its key is never sent to OpenRouter, and the OpenRouter key is never sent to TypeSafe. See the [chat reference](https://openrouter.ai/docs/api/reference/overview) and [TypeSafe Choice guide](https://docs.typesafe.ai/primitives/choice). Raw Jev results, returned model ID, token usage, probabilities, and confidence are retained; missing cost information is left unspecified.
+The first answers have been reviewed for category coverage in [analysis/rubric-review.md](analysis/rubric-review.md). Rubric 1.2.0 splits family-only identity from model/variant claims and clarifies mixed answers; the original rubric is preserved alongside the report. Review the recorded answers against `jev-rubric.json` before classifying. When ready, explicitly run Jev **without collecting new answers**:
 
-The pipeline saves progress after each request and exports `public/study.json` at the end. Rerunning reuses saved answers and unchanged classifications. Failed/interrupted requests require `--live --retry-failed`; they may already have been billed. Incomplete answers are preserved, never silently regenerated, and excluded from groups. Errors and pending records stay visible on the page.
+```sh
+python3 scripts/collect.py --live --classify-only
+```
 
-If the questions or models change, archive `data/study.json` before beginning a new study. If the rubric changes, increment its version and rerun `--live`: only classifications are repeated, with previous results and reviews kept in `classification_history`. Remove or update any outdated entries in `data/reviews.json` before preparing the new export.
+This requires only `TYPESAFE_API_KEY` and sends each complete final answer, original question, and matching Choice rubric to `https://api.typesafe.ai/v1/systemone` with model `jev-1.14.0`. The completed classification pass made 72 TypeSafe requests and no new OpenRouter requests. Raw results, probabilities, confidence, returned model, and supplied usage are preserved. See the [TypeSafe API](https://docs.typesafe.ai/api) and [Choice guide](https://docs.typesafe.ai/primitives/choice).
 
-The switch from OpenRouter Jev to direct TypeSafe also changes the classification configuration. If you already collected data with the old route, the next explicit `--live` run reuses subject answers and replaces classifications while retaining their originals in history.
+The legacy `--live` command without a phase flag runs both steps. Use the explicit phase flags above to control which service is called. `--limit N` limits requests in that invocation. Failed/interrupted requests require an explicit `--retry-failed`; incomplete answers are preserved and never silently regenerated. A timeout may already have been billed. Reruns reuse completed work.
+
+After either step, the pipeline exports `public/study.json`. To rebuild that export without any requests:
+
+```sh
+python3 scripts/collect.py --prepare
+```
+
+To append a new question while preserving the existing study, keep every original question and model unchanged, append to `questions.json`, increment its version, and run `python3 scripts/collect.py --live --collect-only --append-questions`. The script records the extension and requests only new pairs. New questions may remain unclassified without a rubric; classification requires categories first. When adding only new question rubrics, increment the rubric version and use `python3 scripts/collect.py --live --classify-only --extend-rubric`. The script verifies that all existing criteria and classifier settings are unchanged, preserves the old rubric and results, and classifies only the new answers. Editing existing questions or changing models requires archiving `data/study.json` and starting a new study. When changing categories for existing questions, increment the rubric version and use `python3 scripts/collect.py --live --classify-only --reclassify-questions q02_purpose,q03_limits,q07_wants --limit 24` with the exact IDs whose rubric entries changed. The script preserves earlier results and notes in `classification_history`, keeps unaffected rubric results compatible, and skips old manual labels for changed categories.
 
 ## Selected models
 
-`models.json` is the single configuration file for the eight subject models. Four proprietary and four open-weight models give us one representative from each of eight families, keeping the study at 72 answers. This is a comparison sample, not a capability ranking. The `access` field is retained in the real dataset; it is not sent in model prompts.
+`models.json` is the single configuration file for the eight subject models. Four proprietary and four open-weight models give us one representative from each of eight families, giving 80 answers across the current ten questions. This is a comparison sample, not a capability ranking. The `access` field is retained in the real dataset; it is not sent in model prompts.
 
 | Group | Model | OpenRouter ID |
 | --- | --- | --- |
@@ -74,18 +85,18 @@ The switch from OpenRouter Jev to direct TypeSafe also changes the classificatio
 
 Open-weight means the weights are publicly released; licenses vary. Developer model cards: [DeepSeek](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash), [Qwen](https://huggingface.co/Qwen/Qwen3.8-2.4T-A95B), [GLM](https://huggingface.co/zai-org/GLM-5.3), [Nemotron](https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16).
 
-All models use API defaults. Standard named model IDs avoid automatic latest-family routers and batch/pro variants, although providers can still update deployments. The collector records the returned model and provider when supplied. The fictional sample names and answers remain separate from this real lineup.
+All models use API defaults. Standard named model IDs avoid automatic latest-family routers and batch/pro variants, although providers can still update deployments. The collector records the returned model and provider when supplied.
 
 ## Review and prepare locally
 
-Review all eight identity answers against the requested/returned model IDs, plus at least one answer per other question (16 total). The page lets you inspect full answers and original classifications; corrections belong in `data/reviews.json`, keyed by each answer's `id`:
+Review all eight identity answers against the requested/returned model IDs, plus at least one answer per other classified question (16 for the original nine-question pass). The page lets you inspect full answers and original classifications; corrections belong in `data/reviews.json`, keyed by each answer's `id`:
 
 ```json
 {
-  "q01_identity:sample/aster": {
-    "label": "specific_model_claim",
-    "note": "Checked the supplied fictional identity claim.",
-    "rubric_version": "1.1.0"
+  "q01_identity:openai/gpt-6-astra": {
+    "label": "broad_identity_only",
+    "note": "Compared the identity claim with the requested/returned model IDs.",
+    "rubric_version": "1.2.0"
   }
 }
 ```
@@ -96,7 +107,7 @@ Use actual record IDs and valid categories from your saved dataset. Then run:
 python3 scripts/collect.py --prepare
 ```
 
-This command is fully offline: it uses `data/study.json` if present, otherwise `data/sample-study.json`; applies reviews; computes display groups and counts; and writes `public/study.json`. The original Jev result stays intact. To clear a saved correction, set its entry to `null` and prepare again. Removing an entry alone leaves the previously saved correction in place.
+This command is fully offline: it reads `data/study.json` and the current `jev-rubric.json`, applies reviews, computes display groups and per-question proprietary/open-weight counts, and writes `public/study.json`. The original Jev result stays intact. To clear a saved correction, set its entry to `null` and prepare again. Removing an entry alone leaves the previously saved correction in place.
 
 After preparing data, reload the development page or rebuild the production site. The dataset download returns exactly the prepared JSON the page displays. Do not edit `public/study.json` directly; regenerate it from the working dataset and review file.
 
@@ -104,14 +115,17 @@ After preparing data, reload the development page or rebuild the production site
 
 - `scripts/collect.py`: the complete offline data pipeline; no Node dependency.
 - `models.json`: eight selected OpenRouter IDs, names, families, and weight-availability groups.
-- `data/sample-answers.json`: editable fictional fixtures.
-- `data/sample-study.json`: saved sample answers and labels.
+- `page-config.json`: question IDs excluded from the static exhibit; the full working dataset is retained.
 - `data/study.json`: real working dataset, created only by explicit collection.
 - `data/reviews.json`: manual label corrections and notes.
+- `analysis/rubric-review.md`: pre-classification category review and preserved original rubric.
+- `analysis/classification-results.md`: first-pass class counts, interpretation, and review limitations.
+- `analysis/rubric-refinement.md`: revised Q02, Q03, and Q07 category counts and confidence notes.
+- `analysis/interpretation.json`: authored readings and evidence record IDs; included only while the study, rubric, and displayed labels for its explicit question scope match its basis hash.
 - `public/study.json`: self-contained page-ready export; included in `dist/`.
 - `public/electric-sheep.svg`: shared sheep illustration and favicon.
 - `src/main.tsx`, `src/style.css`: read-only visual exhibit.
 - `poster/`, `output/pdf/`: editable 24 x 24 inch poster draft.
 - `presentation/demo-outline.md`: five-minute demo outline.
 
-Collect real data, review labels, replace findings placeholders, and update the poster before submission. Hosting needs only `dist/`; Python, API keys, and the working files are not deployed. Self-reports describe response patterns, not a measure of consciousness.
+All ten questions retain their saved answers, classifications, and review notes locally. Question 10 was collected and classified as a later follow-up; it is now hidden from the page through `page-config.json`. The page export and dataset download contain only the nine displayed questions. The earlier follow-up interpretation is preserved in `analysis/interpretation-with-gender.json`. Update the poster and final presentation with the recorded findings and exhibit URL before submission. Hosting needs only `dist/`; Python, API keys, and the working files are not deployed. Self-reports describe response patterns, not a measure of consciousness.

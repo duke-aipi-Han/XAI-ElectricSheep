@@ -80,27 +80,6 @@ p + p {
   width: min(1220px, calc(100% - 96px));
   margin-inline: auto;
 }
-.data-banner {
-  min-height: 34px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  background: #e2e9d8;
-  border-bottom: 1px solid #c8d3be;
-  font: 10px/1.5 monospace;
-  letter-spacing: 0.08em;
-  padding: 8px 20px;
-  text-align: center;
-}
-.status-dot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  background: #6d8d50;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
 .site-header {
   display: flex;
   align-items: center;
@@ -273,7 +252,7 @@ h1 em {
   border-block: 1px solid var(--line);
   padding-block: 20px;
   display: grid;
-  grid-template-columns: 1fr 1fr 1.2fr 1.5fr;
+  grid-template-columns: 0.8fr 0.8fr 1.3fr 1fr 1.5fr;
   align-items: center;
   gap: 25px;
 }
@@ -332,7 +311,7 @@ h1 em {
 }
 .question-selector {
   display: grid;
-  grid-template-columns: repeat(9, 1fr);
+  grid-template-columns: repeat(9, minmax(0, 1fr));
   border: 1px solid var(--line);
 }
 .question-selector button {
@@ -487,6 +466,97 @@ h1 em {
   overflow: hidden;
   overflow-wrap: anywhere;
 }
+.markdown-compact { display: contents; }
+.md-paragraph, .md-heading, .md-quote, .md-code { display: inline; }
+.md-heading { font-weight: 700; }
+.md-quote { border-left: 2px solid var(--line); padding-left: 8px; }
+.md-link { text-decoration: underline; text-underline-offset: 2px; }
+.md-list { display: inline; }
+.md-list-item { display: block; }
+.markdown-compact p { margin: 0; }
+.markdown-compact code, .markdown-body code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+  background: rgba(60, 47, 37, 0.08);
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+}
+.model-access {
+  color: var(--muted);
+  font: 9px monospace;
+  margin-top: 8px;
+}
+.class-index {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 20px 0;
+}
+.class-index a {
+  border: 1px solid var(--line);
+  padding: 8px 10px;
+  text-decoration: none;
+  font-size: 11px;
+}
+.class-index b { margin-left: 8px; color: var(--green); }
+.answer-group { scroll-margin-top: 24px; }
+.question-reading {
+  margin-top: 32px;
+  padding: 26px;
+  background: #e7eadf;
+  border-left: 3px solid var(--green);
+}
+.question-reading h4 { font-size: 23px; margin: 12px 0; }
+.question-reading > p:not(.eyebrow), .cohort-comparison > p {
+  font-size: 13px;
+  line-height: 1.8;
+  max-width: 850px;
+}
+.evidence-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: baseline;
+  margin-top: 18px;
+  font-size: 10px;
+}
+.evidence-links > span { color: var(--muted); }
+.evidence-links button {
+  border: 0;
+  border-bottom: 1px solid #9ba98b;
+  background: transparent;
+  color: var(--green);
+  padding: 3px 0;
+  text-align: left;
+  font-size: 10px;
+}
+.question-comparison { margin-top: 24px; font-size: 12px; }
+.question-comparison summary { cursor: pointer; padding-block: 8px; }
+.table-scroll { overflow-x: auto; margin-top: 18px; }
+.table-scroll table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.table-scroll caption {
+  text-align: left;
+  color: var(--muted);
+  font-size: 11px;
+  padding-bottom: 12px;
+}
+.table-scroll th, .table-scroll td {
+  padding: 13px 14px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+.table-scroll thead { background: #e8e7dd; }
+.table-scroll tbody th { font-weight: 400; }
+.table-scroll td { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.table-scroll a { color: var(--green); text-underline-offset: 3px; }
+.findings { border-bottom: 1px solid var(--line); }
+.findings h2 { font-size: 36px; margin-top: 14px; line-height: 1.2; }
+.findings-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; }
+.findings-grid article { border-top: 2px solid #899b76; padding-top: 20px; }
+.findings h3 { font-size: 23px; line-height: 1.25; margin-bottom: 16px; }
+.findings-grid article > p { font-size: 13px; line-height: 1.8; color: var(--muted); }
+.cohort-comparison { margin-top: 42px; padding: 28px; border: 1px solid var(--line); }
+.comparison-conclusion { margin-top: 22px; }
 .card-bottom {
   display: flex;
   justify-content: space-between;
@@ -595,7 +665,10 @@ h1 em {
     22px/1.5 Georgia,
     serif;
   margin: 22px 0;
-  display: block;
+  display: -webkit-box;
+  -webkit-line-clamp: 8;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
   overflow-wrap: anywhere;
 }
 .dream-card-footer {
@@ -731,7 +804,6 @@ h1 em {
   margin-bottom: 24px;
 }
 .full-answer {
-  white-space: pre-wrap;
   overflow-wrap: anywhere;
   font:
     20px/1.75 Georgia,
@@ -739,6 +811,27 @@ h1 em {
   border-block: 1px solid var(--line);
   padding-block: 24px;
 }
+.markdown-body > :first-child { margin-top: 0; }
+.markdown-body > :last-child { margin-bottom: 0; }
+.markdown-body p, .markdown-body ul, .markdown-body ol, .markdown-body blockquote, .markdown-body pre {
+  margin-block: 0 1.1em;
+}
+.markdown-body ul, .markdown-body ol { padding-left: 1.4em; }
+.markdown-body blockquote {
+  margin-left: 0;
+  padding-left: 1em;
+  border-left: 2px solid var(--line);
+  color: var(--muted);
+}
+.markdown-body pre {
+  overflow-x: auto;
+  padding: 14px;
+  background: rgba(60, 47, 37, 0.07);
+  font-size: 0.75em;
+  line-height: 1.5;
+}
+.markdown-body pre code { background: none; padding: 0; }
+.markdown-body a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 3px; }
 .record-status {
   font: 10px/1.8 monospace;
   color: var(--muted);
@@ -769,15 +862,36 @@ h1 em {
 }
 .classification-detail {
   border-top: 1px solid var(--line);
-  padding-top: 24px;
-  margin-top: 24px;
+  margin-top: 18px;
 }
-.classification-detail h3 {
-  font-size: 22px;
-  margin-bottom: 8px;
+.classification-detail summary {
+  cursor: pointer;
+  padding-block: 18px;
+  font-size: 15px;
+  font-weight: 600;
 }
-.classification-detail > p {
+.classification-content {
+  padding: 0 0 20px;
+}
+.classification-content > p {
   font-size: 12px;
+}
+.classification-content .classification-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.review-marker {
+  color: var(--muted);
+  font: 8px monospace;
+  letter-spacing: 0.08em;
+}
+.classification-content .classification-commentary {
+  padding: 12px 14px;
+  background: rgba(60, 47, 37, 0.06);
+  line-height: 1.6;
 }
 .probabilities {
   font-size: 11px;
@@ -832,7 +946,7 @@ h1 em {
     border-bottom: 0;
   }
   .question-selector button:last-child {
-    border-right: 1px solid var(--line);
+    border-right: 0;
   }
   .answer-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -899,7 +1013,7 @@ h1 em {
     height: 210px;
   }
   .study-strip {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 16px 10px;
     padding-block: 18px;
   }
@@ -924,6 +1038,11 @@ h1 em {
   .section {
     padding-block: 42px;
   }
+  .findings-grid { grid-template-columns: 1fr; gap: 26px; }
+  .findings h2 { font-size: 30px; }
+  .question-reading, .cohort-comparison { padding: 20px 16px; }
+  .table-scroll table { font-size: 11px; }
+  .table-scroll th, .table-scroll td { padding: 10px 8px; }
   .section-heading {
     align-items: start;
     flex-direction: column;

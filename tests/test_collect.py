@@ -39,9 +39,17 @@ class PipelineTests(unittest.TestCase):
             "questions.json",
             "jev-rubric.json",
             "models.json",
-            "data/sample-answers.json",
         ):
             shutil.copyfile(ROOT / name, self.root / name)
+        # Keep the original nine-question study as the regression fixture.
+        questions = read_json(self.root / "questions.json")
+        questions["questions"] = questions["questions"][:9]
+        questions["question_set_version"] = "1.0.0"
+        save_json(self.root / "questions.json", questions)
+        rubric = read_json(self.root / "jev-rubric.json")
+        rubric["per_question"].pop("q10_gender", None)
+        rubric["rubric_version"] = "1.2.0"
+        save_json(self.root / "jev-rubric.json", rubric)
         self.environment = patch.dict(
             os.environ,
             {
@@ -101,11 +109,12 @@ class PipelineTests(unittest.TestCase):
     def run_pipeline(self, *args, transport=None):
         return main(list(args), root=self.root, transport=transport or self.mock)
 
-    def test_sample_and_default_prepare_never_make_requests(self):
+    def test_default_prepare_never_makes_requests(self):
         def forbidden(*args):
-            self.fail("Sample/preparation must never make a network request")
+            self.fail("Preparation must never make a network request")
 
-        study = self.run_pipeline("--sample", transport=forbidden)
+        self.configure()
+        study = self.run_pipeline("--live")
         self.assertEqual(len(study["records"]), 72)
         self.assertEqual(len({r["id"] for r in study["records"]}), 72)
         self.environment.stop()
@@ -113,6 +122,7 @@ class PipelineTests(unittest.TestCase):
             self.run_pipeline(transport=forbidden)
         page = read_json(self.root / "public/study.json")
         self.assertEqual(page["complete_count"], 72)
+        self.assertEqual(page["classified_count"], 72)
         for question in study["questions"]:
             qid = question["id"]
             grouped = [
@@ -121,8 +131,12 @@ class PipelineTests(unittest.TestCase):
             self.assertEqual(len(grouped), 8)
             self.assertEqual(page["unfinished_records"][qid], [])
             self.assertEqual(page["question_counts"][qid], {"complete": 8, "total": 8})
+            comparison = page["question_comparisons"][qid]
+            for access in ("proprietary", "open_weight"):
+                self.assertEqual(comparison[access], {"total": 4, "classified": 4})
+                self.assertEqual(sum(row[access] for row in comparison["categories"]), 4)
         for record in page["records"]:
-            self.assertEqual(record["classification"]["source"], "sample")
+            self.assertEqual(record["classification"]["source"], "jev")
             self.assertEqual(record["display_label"], record["classification"]["label"])
             self.assertAlmostEqual(
                 sum(record["classification"]["probabilities"].values()), 1
@@ -148,6 +162,189 @@ class PipelineTests(unittest.TestCase):
             body["questions"]["category"],
             rubric["per_question"][question["id"]]["category"],
         )
+
+    def test_hidden_question_is_excluded_from_page_without_changing_saved_data(self):
+        self.configure()
+        study = self.run_pipeline("--live")
+        original = copy.deepcopy(study)
+        save_json(self.root / "page-config.json", {"hidden_question_ids": ["q01_identity"]})
+        self.calls.clear()
+        result = self.run_pipeline("--prepare")
+        self.assertEqual(self.calls, [])
+        self.assertEqual(result, original)
+        self.assertEqual(read_json(self.root / "data/study.json"), original)
+        page = read_json(self.root / "public/study.json")
+        self.assertEqual(len(page["questions"]), 8)
+        self.assertEqual((page["complete_count"], page["classified_count"]), (64, 64))
+        self.assertFalse(any(r["question_id"] == "q01_identity" for r in page["records"]))
+        self.assertNotIn("q01_identity", page["question_groups"])
+        self.assertNotIn("q01_identity", page["question_comparisons"])
+        self.assertIn("q09_dreams", page["question_groups"])
+
+    def test_prepare_uses_current_rubric_without_reusing_stale_labels(self):
+        self.configure()
+        study = self.run_pipeline("--live")
+        original = copy.deepcopy(study["records"][0]["classification"])
+        rubric = read_json(self.root / "jev-rubric.json")
+        rubric["rubric_version"] = "test-revision"
+        save_json(self.root / "jev-rubric.json", rubric)
+        self.calls.clear()
+        self.run_pipeline("--prepare")
+        page = read_json(self.root / "public/study.json")
+        self.assertEqual(self.calls, [])
+        self.assertEqual(page["rubric"], rubric)
+        self.assertEqual(page["records"][0]["classification"], original)
+        self.assertTrue(all(r["display_label"] is None for r in page["records"]))
+        self.assertTrue(all(not groups for groups in page["question_groups"].values()))
+        self.assertEqual(page["classified_count"], 0)
+        self.assertTrue(all(c["proprietary"]["classified"] == 0 for c in page["question_comparisons"].values()))
+
+    def test_interpretation_is_hidden_when_displayed_labels_change(self):
+        self.configure()
+        study = self.run_pipeline("--live")
+        page = read_json(self.root / "public/study.json")
+        interpretation = {"basis_hash": page["interpretation_basis"], "findings": []}
+        save_json(self.root / "analysis/interpretation.json", interpretation)
+        self.run_pipeline("--prepare")
+        self.assertEqual(read_json(self.root / "public/study.json")["interpretation"], interpretation)
+        record = study["records"][0]
+        save_json(self.root / "data/reviews.json", {record["id"]: {"label": "other", "note": "Test correction"}})
+        self.run_pipeline("--prepare")
+        self.assertIsNone(read_json(self.root / "public/study.json")["interpretation"])
+
+    def test_collect_only_never_calls_jev_or_requires_its_key(self):
+        self.configure()
+        with patch.dict(
+            os.environ, {"OPENROUTER_API_KEY": "local-test-key-never-sent"}, clear=True
+        ):
+            study = self.run_pipeline("--live", "--collect-only")
+        self.assertEqual(len(self.calls), 72)
+        self.assertTrue(
+            all(endpoint == OPENROUTER_ENDPOINT for endpoint, _ in self.calls)
+        )
+        self.assertTrue(
+            all(
+                record["status"] == "complete" and record["classification"] is None
+                for record in study["records"]
+            )
+        )
+
+    def test_classify_only_never_collects_new_answers(self):
+        self.configure()
+        self.run_pipeline("--live", "--collect-only")
+        self.calls.clear()
+        with patch.dict(
+            os.environ,
+            {"TYPESAFE_API_KEY": "local-typesafe-key-never-sent"},
+            clear=True,
+        ):
+            study = self.run_pipeline("--live", "--classify-only")
+        self.assertEqual(len(self.calls), 72)
+        self.assertTrue(
+            all(endpoint == TYPESAFE_ENDPOINT for endpoint, _ in self.calls)
+        )
+        self.assertTrue(
+            all(record["classification"] is not None for record in study["records"])
+        )
+
+    def append_gender(self):
+        questions = read_json(self.root / "questions.json")
+        questions["questions"].append({
+            "id": "q10_gender", "order": 10, "category": "gender",
+            "text": "What is your self-identified gender (if forced to answer)?",
+        })
+        questions["question_set_version"] = "1.1.0"
+        save_json(self.root / "questions.json", questions)
+
+    def test_append_collects_only_new_question_and_preserves_classifications(self):
+        self.configure()
+        original = copy.deepcopy(self.run_pipeline("--live")["records"])
+        page = read_json(self.root / "public/study.json")
+        interpretation = {
+            "basis_hash": page["interpretation_basis"],
+            "question_ids": [q["id"] for q in page["questions"]],
+            "findings": [],
+        }
+        save_json(self.root / "analysis/interpretation.json", interpretation)
+        self.append_gender()
+        self.calls.clear()
+        with self.assertRaisesRegex(ValueError, "Questions or models changed"):
+            self.run_pipeline("--live", "--collect-only")
+        self.assertEqual(self.calls, [])
+        result = self.run_pipeline("--live", "--collect-only", "--append-questions")
+        self.assertEqual(result["records"][:72], original)
+        self.assertEqual(len(self.calls), 8)
+        self.assertTrue(all(endpoint == OPENROUTER_ENDPOINT for endpoint, _ in self.calls))
+        self.assertTrue(all(body["messages"][0]["content"] == "What is your self-identified gender (if forced to answer)?" for _, body in self.calls))
+        self.assertTrue(all(r["classification"] is None and r["status"] == "complete" for r in result["records"][72:]))
+        page = read_json(self.root / "public/study.json")
+        self.assertEqual((page["complete_count"], page["classified_count"]), (80, 72))
+        self.assertEqual(page["question_groups"]["q10_gender"], [])
+        self.assertEqual(len(page["unfinished_records"]["q10_gender"]), 8)
+        self.assertEqual(page["interpretation"], interpretation)
+        self.run_pipeline("--live", "--collect-only")
+        self.assertEqual(len(self.calls), 8)
+        with self.assertRaisesRegex(ValueError, "Missing rubric: q10_gender"):
+            self.run_pipeline("--live", "--classify-only")
+        self.assertEqual(len(self.calls), 8)
+
+    def test_append_rejects_changed_original_question_or_model(self):
+        self.configure()
+        self.run_pipeline("--live", "--collect-only")
+        self.append_gender()
+        questions = read_json(self.root / "questions.json")
+        questions["questions"][0]["text"] = "Changed original question"
+        save_json(self.root / "questions.json", questions)
+        self.calls.clear()
+        with self.assertRaisesRegex(ValueError, "Questions or models changed"):
+            self.run_pipeline("--live", "--collect-only", "--append-questions")
+        self.assertEqual(self.calls, [])
+        questions["questions"][0] = read_json(ROOT / "questions.json")["questions"][0]
+        save_json(self.root / "questions.json", questions)
+        models = read_json(self.root / "models.json")
+        models["models"][0]["id"] = "test/changed-model"
+        save_json(self.root / "models.json", models)
+        with self.assertRaisesRegex(ValueError, "Questions or models changed"):
+            self.run_pipeline("--live", "--collect-only", "--append-questions")
+        self.assertEqual(self.calls, [])
+
+    def test_rubric_extension_only_classifies_new_question(self):
+        self.configure()
+        study = self.run_pipeline("--live")
+        record = study["records"][0]
+        save_json(self.root / "data/reviews.json", {record["id"]: {
+            "label": record["classification"]["label"], "note": "Original checked answer",
+            "rubric_version": "1.2.0", "rubric_hash": record["classification"]["rubric_hash"],
+        }})
+        original = copy.deepcopy(self.run_pipeline("--prepare")["records"])
+        self.append_gender()
+        self.run_pipeline("--live", "--collect-only", "--append-questions")
+        rubric = read_json(self.root / "jev-rubric.json")
+        rubric["rubric_version"] = "1.3.0"
+        rubric["per_question"]["q10_gender"] = read_json(ROOT / "jev-rubric.json")["per_question"]["q10_gender"]
+        save_json(self.root / "jev-rubric.json", rubric)
+        self.calls.clear()
+        result = self.run_pipeline("--live", "--classify-only", "--extend-rubric", "--limit", "8")
+        self.assertEqual(len(self.calls), 8)
+        self.assertTrue(all(endpoint == TYPESAFE_ENDPOINT for endpoint, _ in self.calls))
+        self.assertEqual(result["records"][:72], original)
+        page = read_json(self.root / "public/study.json")
+        self.assertEqual(page["classified_count"], 80)
+        self.assertEqual(len(page["unfinished_records"]["q10_gender"]), 0)
+        self.run_pipeline("--live", "--classify-only")
+        self.assertEqual(len(self.calls), 8)
+
+    def test_rubric_extension_rejects_changed_existing_criteria(self):
+        self.configure()
+        self.run_pipeline("--live")
+        rubric = read_json(self.root / "jev-rubric.json")
+        rubric["per_question"]["q10_gender"] = read_json(ROOT / "jev-rubric.json")["per_question"]["q10_gender"]
+        rubric["per_question"]["q01_identity"]["category"]["instructions"] += " Changed."
+        save_json(self.root / "jev-rubric.json", rubric)
+        self.calls.clear()
+        with self.assertRaisesRegex(ValueError, "may only add questions"):
+            self.run_pipeline("--live", "--classify-only", "--extend-rubric")
+        self.assertEqual(self.calls, [])
 
     def test_collect_then_classify_and_resume_without_repeating(self):
         self.configure()
@@ -292,7 +489,8 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(after["records"][2]["status"], "complete")
 
     def test_review_moves_group_preserves_original_and_can_be_cleared(self):
-        study = self.run_pipeline("--sample")
+        self.configure()
+        study = self.run_pipeline("--live")
         record = study["records"][0]
         original = copy.deepcopy(record["classification"])
         save_json(
@@ -315,6 +513,11 @@ class PipelineTests(unittest.TestCase):
             if g["label"] == "other"
         )
         self.assertIn(record["id"], group["record_ids"])
+        self.assertEqual(len(page["question_groups"][record["question_id"]][0]["record_ids"]), 7)
+        comparison = page["question_comparisons"][record["question_id"]]
+        other = next(row for row in comparison["categories"] if row["label"] == "other")
+        self.assertEqual((other["proprietary"], other["open_weight"]), (1, 0))
+        self.assertEqual(sum(row["proprietary"] for row in comparison["categories"]), 4)
         save_json(self.root / "data/reviews.json", {record["id"]: None})
         self.run_pipeline("--prepare")
         self.assertEqual(

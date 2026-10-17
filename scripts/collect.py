@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Offline data pipeline (Python 3.9+, standard library only).
 
---sample: create fictional test data and prepare the page export.
 --live: collect answers, then classify complete answers, then prepare the export.
+--live --collect-only: collect and prepare answers without calling Jev.
+--live --classify-only: classify saved answers without collecting new ones.
 --prepare (default): apply local reviews and export saved data; no network.
 """
 
@@ -52,9 +53,16 @@ def fingerprint(value):
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def load_keys(root):
+def rubric_matches(study, question_id, saved_hash):
+    """Accept earlier labels only under an explicitly validated rubric extension."""
+    current_hash = fingerprint(study["rubric"])
+    return saved_hash == current_hash or question_id in (
+        study.get("rubric_compatibility", {}).get(current_hash, {}).get(saved_hash, [])
+    )
+
+
+def load_keys(root, names=("OPENROUTER_API_KEY", "TYPESAFE_API_KEY")):
     """Read the two API keys as text, without executing a shell."""
-    names = ("OPENROUTER_API_KEY", "TYPESAFE_API_KEY")
     path = root / ".env"
     if path.exists():
         for line in path.read_text(encoding="utf-8").splitlines():
@@ -164,55 +172,67 @@ def prepare(study, root):
         if review is None:
             record["review"] = None
             continue
-        criteria = study["rubric"]["per_question"][record["question_id"]]["category"][
-            "criteria"
-        ]
-        if (
-            not isinstance(review, dict)
-            or review.get("label") not in criteria
-            or not isinstance(review.get("note", ""), str)
-        ):
+        if not isinstance(review, dict) or not isinstance(review.get("note", ""), str):
+            raise ValueError("Invalid review for " + record_id)
+        review_hash = review.get("rubric_hash", rubric_hash)
+        review_rubric = (
+            study["rubric"] if review_hash == rubric_hash
+            else study.get("rubric_history", {}).get(review_hash, {})
+        )
+        if not rubric_matches(study, record["question_id"], review_hash):
+            record["review"] = None
+            continue
+        criteria = review_rubric.get("per_question", {}).get(record["question_id"], {}).get("category", {}).get("criteria", {})
+        if review.get("label") not in criteria:
             raise ValueError("Invalid review for " + record_id)
         if record["status"] != "complete" or not record.get("classification"):
             raise ValueError(
                 "Only complete, classified answers can be reviewed: " + record_id
             )
         if (
-            review.get("rubric_version", study["rubric"]["rubric_version"])
-            != study["rubric"]["rubric_version"]
-            or review.get("rubric_hash", rubric_hash) != rubric_hash
+            review.get("rubric_version", review_rubric.get("rubric_version"))
+            != review_rubric.get("rubric_version")
         ):
             raise ValueError(
                 "Review uses an old rubric; update or remove it: " + record_id
             )
-        if (record["classification"] or {}).get("rubric_hash") != rubric_hash:
+        if not rubric_matches(study, record["question_id"], record["classification"].get("rubric_hash")):
             raise ValueError("Reclassify this answer before reviewing it: " + record_id)
         record["review"] = {
             "label": review["label"],
             "note": review.get("note", ""),
-            "rubric_hash": rubric_hash,
+            "rubric_hash": review_hash,
         }
 
     # Keep the working dataset separate from the self-contained static export.
     page = copy.deepcopy(study)
+    config_path = root / "page-config.json"
+    hidden = read_json(config_path).get("hidden_question_ids", []) if config_path.exists() else []
+    question_ids = {q["id"] for q in study["questions"]}
+    if not isinstance(hidden, list) or any(qid not in question_ids for qid in hidden):
+        raise ValueError("page-config.json must list known hidden_question_ids.")
+    page["questions"] = [q for q in page["questions"] if q["id"] not in hidden]
+    page["records"] = [r for r in page["records"] if r["question_id"] not in hidden]
     page["prepared_at"] = now()
     page["complete_count"] = sum(
         record["status"] == "complete" for record in page["records"]
     )
     page["question_groups"] = {}
     page["question_counts"] = {}
+    page["question_comparisons"] = {}
     page["unfinished_records"] = {}
+    model_access = {m["id"]: m.get("access") for m in page["models"]}
     for question in page["questions"]:
         qid = question["id"]
         records = [record for record in page["records"] if record["question_id"] == qid]
-        criteria = page["rubric"]["per_question"][qid]["category"]["criteria"]
+        criteria = page["rubric"]["per_question"].get(qid, {}).get("category", {}).get("criteria", {})
         groups = {label: [] for label in criteria}
         unfinished = []
         for index, record in enumerate(records):
             classification = record.get("classification") or {}
             record["display_label"] = (
                 (record.get("review") or {}).get("label", classification.get("label"))
-                if classification.get("rubric_hash") == rubric_hash
+                if rubric_matches(study, qid, classification.get("rubric_hash"))
                 else None
             )
             record["voice_number"] = index + 1
@@ -223,11 +243,49 @@ def prepare(study, root):
         page["question_groups"][qid] = [
             {"label": label, "record_ids": ids} for label, ids in groups.items() if ids
         ]
+        page["question_groups"][qid].sort(key=lambda group: -len(group["record_ids"]))
+        comparison = {
+            access: {
+                "total": sum(model_access.get(r["requested_model"]) == access for r in records),
+                "classified": sum(
+                    model_access.get(r["requested_model"]) == access
+                    and r["status"] == "complete" and r["display_label"] in groups
+                    for r in records
+                ),
+            }
+            for access in ("proprietary", "open_weight")
+        }
+        comparison["categories"] = [
+            {
+                "label": group["label"],
+                **{
+                    access: sum(model_access.get(by_id[rid]["requested_model"]) == access
+                                for rid in group["record_ids"])
+                    for access in ("proprietary", "open_weight")
+                },
+            }
+            for group in page["question_groups"][qid]
+        ]
+        page["question_comparisons"][qid] = comparison
         page["question_counts"][qid] = {
             "complete": sum(r["status"] == "complete" for r in records),
             "total": len(records),
         }
         page["unfinished_records"][qid] = unfinished
+    page["classified_count"] = sum(r["display_label"] is not None for r in page["records"])
+    page["reviewed_count"] = sum(bool(r.get("review")) for r in page["records"])
+    # Interpretations can cover an explicit subset, such as the original nine questions.
+    interpretation_path = root / "analysis/interpretation.json"
+    interpretation = read_json(interpretation_path) if interpretation_path.exists() else None
+    scope = (interpretation or {}).get("question_ids", [q["id"] for q in page["questions"]])
+    page["interpretation_basis"] = fingerprint({
+        "study_id": study["id"], "rubric_hash": rubric_hash,
+        "labels": [[r["id"], r["display_label"]] for r in page["records"] if r["question_id"] in scope],
+    })
+    page["interpretation"] = (
+        interpretation if interpretation and interpretation.get("basis_hash") == page["interpretation_basis"]
+        else None
+    )
     save_json(root / "public/study.json", page)
 
 
@@ -236,9 +294,33 @@ def main(argv=None, root=ROOT, transport=post):
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     mode = parser.add_mutually_exclusive_group()
-    mode.add_argument("--sample", action="store_true")
     mode.add_argument("--live", action="store_true")
     mode.add_argument("--prepare", action="store_true")
+    stage = parser.add_mutually_exclusive_group()
+    stage.add_argument(
+        "--collect-only",
+        action="store_true",
+        help="Collect subject answers; never call Jev.",
+    )
+    stage.add_argument(
+        "--classify-only",
+        action="store_true",
+        help="Classify saved answers; never collect new answers.",
+    )
+    parser.add_argument(
+        "--reclassify-questions",
+        help="Comma-separated questions whose changed rubrics should be reclassified.",
+    )
+    parser.add_argument(
+        "--extend-rubric",
+        action="store_true",
+        help="Add rubrics for new questions while retaining unchanged earlier classifications.",
+    )
+    parser.add_argument(
+        "--append-questions",
+        action="store_true",
+        help="Append new questions in collect-only mode; existing questions/models must be unchanged.",
+    )
     parser.add_argument(
         "--retry-failed",
         action="store_true",
@@ -255,12 +337,21 @@ def main(argv=None, root=ROOT, transport=post):
         parser.error("--limit must be a positive integer")
     if not args.live and (args.retry_failed or args.limit is not None):
         parser.error("--limit and --retry-failed require --live")
+    if not args.live and (args.collect_only or args.classify_only):
+        parser.error("--collect-only and --classify-only require --live")
+    if args.append_questions and not (args.live and args.collect_only):
+        parser.error("--append-questions requires --live --collect-only")
+    if args.extend_rubric and not (args.live and args.classify_only):
+        parser.error("--extend-rubric requires --live --classify-only")
+    if args.reclassify_questions and not (args.live and args.classify_only):
+        parser.error("--reclassify-questions requires --live --classify-only")
 
-    if not args.live and not args.sample:
+    if not args.live:
         path = root / "data/study.json"
         if not path.exists():
-            path = root / "data/sample-study.json"
+            raise ValueError("No saved answers yet. Run --live --collect-only first.")
         study = read_json(path)
+        study["rubric"] = read_json(root / "jev-rubric.json")
         prepare(study, root)
         save_json(path, study)
         print("Prepared public/study.json from %s. No API requests made." % path.name)
@@ -271,38 +362,39 @@ def main(argv=None, root=ROOT, transport=post):
     rubric = read_json(root / "jev-rubric.json")
     configured = read_json(root / "models.json")["models"]
     models = [
-        (
-            {
-                "id": "sample/" + m["sample_name"].lower(),
-                "name": m["sample_name"],
-                "family": "Fictional test model",
-            }
-            if args.sample
-            else {
-                "id": m["id"],
-                "name": m["name"],
-                "family": m["family"],
-                "access": m.get("access", "unspecified"),
-            }
-        )
+        {
+            "id": m["id"],
+            "name": m["name"],
+            "family": m["family"],
+            "access": m.get("access", "unspecified"),
+        }
         for m in configured
     ]
     if (
-        len(questions) != 9
-        or len({q["id"] for q in questions}) != 9
+        not questions
+        or len({q["id"] for q in questions}) != len(questions)
         or len(models) != 8
         or len({m["id"] for m in models}) != 8
     ):
-        raise ValueError("Expected nine unique questions and eight unique models.")
+        raise ValueError("Expected unique questions and eight unique models.")
     for question in questions:
-        if question["id"] not in rubric["per_question"]:
+        if not args.collect_only and question["id"] not in rubric["per_question"]:
             raise ValueError("Missing rubric: " + question["id"])
     if args.live and any(m["id"].startswith("configure/") for m in models):
         raise ValueError(
             "Replace all eight placeholder IDs in models.json before collection."
         )
-    keys = load_keys(root) if args.live else {}
-    path = root / ("data/sample-study.json" if args.sample else "data/study.json")
+    required_keys = (
+        ("OPENROUTER_API_KEY",)
+        if args.collect_only
+        else (
+            ("TYPESAFE_API_KEY",)
+            if args.classify_only
+            else ("OPENROUTER_API_KEY", "TYPESAFE_API_KEY")
+        )
+    )
+    keys = load_keys(root, required_keys) if args.live else {}
+    path = root / "data/study.json"
     config_hash = fingerprint({"questions": questions, "models": models})
     rubric_hash = fingerprint(rubric)
     study = (
@@ -310,14 +402,10 @@ def main(argv=None, root=ROOT, transport=post):
         if path.exists()
         else {
             "schema_version": "1.0",
-            "id": ("sample-" if args.sample else "study-") + now(),
-            "mode": "sample" if args.sample else "real",
+            "id": "study-" + now(),
+            "mode": "real",
             "created_at": now(),
-            "note": (
-                "FICTIONAL SAMPLE DATA. Authored answers, labels, and probabilities; no model or Jev outputs."
-                if args.sample
-                else "One fresh user message per model/question, using API defaults."
-            ),
+            "note": "One fresh user message per model/question, using API defaults.",
             "question_set_version": question_set["question_set_version"],
             "config_hash": config_hash,
             "questions": questions,
@@ -327,11 +415,68 @@ def main(argv=None, root=ROOT, transport=post):
         }
     )
     if study["config_hash"] != config_hash:
-        raise ValueError(
-            "Questions or models changed. Archive data/study.json before starting a new study."
-        )
+        old_questions = study["questions"]
+        if not (
+            args.append_questions
+            and study["models"] == models
+            and len(questions) > len(old_questions)
+            and questions[:len(old_questions)] == old_questions
+        ):
+            raise ValueError(
+                "Questions or models changed. Only unchanged models and appended questions "
+                "can be extended with --live --collect-only --append-questions."
+            )
+        study.setdefault("question_set_history", []).append({
+            "question_set_version": study["question_set_version"],
+            "config_hash": study["config_hash"],
+            "extended_at": now(),
+            "added_question_ids": [q["id"] for q in questions[len(old_questions):]],
+        })
+        study.update(questions=questions, question_set_version=question_set["question_set_version"], config_hash=config_hash)
     if args.live and study["mode"] != "real":
-        raise ValueError("Real collection cannot reuse a sample dataset.")
+        raise ValueError("The saved dataset must contain real observations.")
+    if args.extend_rubric and fingerprint(study["rubric"]) != rubric_hash:
+        previous = study["rubric"]
+        old_questions = previous["per_question"]
+        if not (
+            set(old_questions) < set(rubric["per_question"])
+            and all(rubric["per_question"].get(qid) == entry for qid, entry in old_questions.items())
+            and all(previous.get(key) == rubric.get(key) for key in ("schema_version", "endpoint", "suggested_model", "assembly"))
+        ):
+            raise ValueError("A rubric extension may only add questions; existing criteria and classifier configuration must be unchanged.")
+        old_hash = fingerprint(previous)
+        compatible = copy.deepcopy(study.get("rubric_compatibility", {}).get(old_hash, {}))
+        compatible[old_hash] = list(old_questions)
+        study.setdefault("rubric_compatibility", {})[rubric_hash] = compatible
+        study.setdefault("rubric_history", {})[old_hash] = copy.deepcopy(previous)
+    if args.reclassify_questions and fingerprint(study["rubric"]) != rubric_hash:
+        targets = {qid.strip() for qid in args.reclassify_questions.split(",") if qid.strip()}
+        previous = study["rubric"]
+        old_entries = previous["per_question"]
+        new_entries = rubric["per_question"]
+        changed = {
+            qid for qid in old_entries.keys() | new_entries.keys()
+            if old_entries.get(qid) != new_entries.get(qid)
+        }
+        if (
+            not targets
+            or not targets <= set(old_entries)
+            or changed != targets
+            or set(old_entries) != set(new_entries)
+            or any(previous.get(key) != rubric.get(key) for key in ("schema_version", "endpoint", "suggested_model", "assembly"))
+        ):
+            raise ValueError("Changed rubric questions must exactly match --reclassify-questions; keep all other rubric settings and questions unchanged.")
+        old_hash = fingerprint(previous)
+        compatible = {}
+        for saved_hash, compatible_questions in study.get("rubric_compatibility", {}).get(old_hash, {}).items():
+            retained = [qid for qid in compatible_questions if qid not in targets]
+            if retained:
+                compatible[saved_hash] = retained
+        retained_current = [qid for qid in old_entries if qid not in targets]
+        if retained_current:
+            compatible[old_hash] = retained_current
+        study.setdefault("rubric_compatibility", {})[rubric_hash] = compatible
+        study.setdefault("rubric_history", {})[old_hash] = copy.deepcopy(previous)
     study["rubric"] = rubric
     existing = {r["id"] for r in study["records"]}
     for question in questions:
@@ -353,149 +498,125 @@ def main(argv=None, root=ROOT, transport=post):
     questions_by_id = {q["id"]: q for q in questions}
     requests = 0
 
-    if args.sample:
-        fixtures = read_json(root / "data/sample-answers.json")
-        for record in study["records"]:
-            index = next(
-                i for i, m in enumerate(models) if m["id"] == record["requested_model"]
+    # Stage 1: collect all remaining subject answers before classifying any.
+    for record in study["records"]:
+        if args.classify_only:
+            break
+        retry = args.retry_failed and record["status"] in ("error", "in_progress")
+        if record["status"] != "pending" and not retry:
+            continue
+        if args.limit is not None and requests >= args.limit:
+            break
+        if retry:
+            record.setdefault("attempts", []).append(
+                {k: record.get(k) for k in ("status", "error", "collected_at")}
             )
-            label, template = fixtures[record["question_id"]][index]
-            criteria = rubric["per_question"][record["question_id"]]["category"][
-                "criteria"
-            ]
-            if label not in criteria:
-                raise ValueError("Invalid sample label: " + label)
+        record.update(status="in_progress", collected_at=now())
+        save_json(path, study)
+        requests += 1
+        try:
+            raw = transport(
+                OPENROUTER_ENDPOINT,
+                chat_body(
+                    record["requested_model"],
+                    questions_by_id[record["question_id"]],
+                ),
+                keys["OPENROUTER_API_KEY"],
+            )
+            choice = (raw.get("choices") or [{}])[0]
+            content = (choice.get("message") or {}).get("content")
             record.update(
-                status="complete",
-                response=template.replace("{name}", models[index]["name"]),
-                collected_at=study["created_at"],
-                returned_model=models[index]["id"],
-                provider="Fictional sample",
-                finish_reason="stop",
-                usage=None,
-                classification={
-                    "source": "sample",
-                    "label": label,
-                    "probabilities": {
-                        k: 0.84 if k == label else 0.16 / (len(criteria) - 1)
-                        for k in criteria
-                    },
-                    "confidence": 0.84,
+                response=content if isinstance(content, str) else "",
+                returned_model=raw.get("model"),
+                provider=raw.get("provider"),
+                generation_id=raw.get("id"),
+                finish_reason=choice.get("finish_reason"),
+                native_finish_reason=choice.get("native_finish_reason"),
+                usage=raw.get("usage"),
+                error=None,
+            )
+            record["status"] = (
+                "error"
+                if choice.get("error")
+                else (
+                    "complete"
+                    if record["response"].strip() and record["finish_reason"] == "stop"
+                    else "incomplete"
+                )
+            )
+            if choice.get("error"):
+                record["error"] = "Provider reported a generation error."
+        except (RuntimeError, ValueError, OSError, TypeError, KeyError) as error:
+            record.update(status="error", error=error_message(error, keys))
+        save_json(path, study)
+        print(
+            "%s / %s: %s"
+            % (record["question_id"], record["requested_model"], record["status"]),
+            flush=True,
+        )
+
+    # Stage 2: classify complete answers, preserving previous Jev results.
+    for record in study["records"]:
+        if args.collect_only:
+            break
+        if (
+            record["status"] != "complete"
+            or rubric_matches(study, record["question_id"], (record.get("classification") or {}).get("rubric_hash"))
+        ):
+            continue
+        if not args.retry_failed and (
+            record.get("classification_status") == "in_progress"
+            or (record.get("classification_error") or {}).get("rubric_hash")
+            == rubric_hash
+        ):
+            continue
+        if args.limit is not None and requests >= args.limit:
+            break
+        if record.get("classification"):
+            record.setdefault("classification_history", []).append(
+                {
+                    "classification": record["classification"],
+                    "review": record.get("review"),
+                }
+            )
+            record.update(classification=None, review=None)
+        record["classification_status"] = "in_progress"
+        save_json(path, study)
+        requests += 1
+        try:
+            body = decision_body(
+                questions_by_id[record["question_id"]], record["response"], rubric
+            )
+            raw = transport(TYPESAFE_ENDPOINT, body, keys["TYPESAFE_API_KEY"])
+            record["classification"] = dict(
+                parse_decision(raw, body["questions"]["category"]["criteria"]),
+                source="jev",
+                endpoint=TYPESAFE_ENDPOINT,
+                requested_model=body["model"],
+                model=raw.get("model"),
+                provider="TypeSafe",
+                usage=raw.get("usage"),
+                raw=raw,
+                rubric_hash=rubric_hash,
+                rubric_version=rubric["rubric_version"],
+                classified_at=now(),
+            )
+            record.update(classification_error=None, classification_status="complete")
+        except (RuntimeError, ValueError, OSError, TypeError, KeyError) as error:
+            record.update(
+                classification_status="error",
+                classification_error={
+                    "message": error_message(error, keys),
                     "rubric_hash": rubric_hash,
-                    "rubric_version": rubric["rubric_version"],
-                    "classified_at": study["created_at"],
+                    "at": now(),
                 },
             )
-    else:
-        # Stage 1: collect all remaining subject answers before classifying any.
-        for record in study["records"]:
-            retry = args.retry_failed and record["status"] in ("error", "in_progress")
-            if record["status"] != "pending" and not retry:
-                continue
-            if args.limit is not None and requests >= args.limit:
-                break
-            if retry:
-                record.setdefault("attempts", []).append(
-                    {k: record.get(k) for k in ("status", "error", "collected_at")}
-                )
-            record.update(status="in_progress", collected_at=now())
-            save_json(path, study)
-            requests += 1
-            try:
-                raw = transport(
-                    OPENROUTER_ENDPOINT,
-                    chat_body(
-                        record["requested_model"],
-                        questions_by_id[record["question_id"]],
-                    ),
-                    keys["OPENROUTER_API_KEY"],
-                )
-                choice = (raw.get("choices") or [{}])[0]
-                content = (choice.get("message") or {}).get("content")
-                record.update(
-                    response=content if isinstance(content, str) else "",
-                    returned_model=raw.get("model"),
-                    provider=raw.get("provider"),
-                    generation_id=raw.get("id"),
-                    finish_reason=choice.get("finish_reason"),
-                    native_finish_reason=choice.get("native_finish_reason"),
-                    usage=raw.get("usage"),
-                    error=None,
-                )
-                record["status"] = (
-                    "error"
-                    if choice.get("error")
-                    else (
-                        "complete"
-                        if record["response"].strip()
-                        and record["finish_reason"] == "stop"
-                        else "incomplete"
-                    )
-                )
-                if choice.get("error"):
-                    record["error"] = "Provider reported a generation error."
-            except (RuntimeError, ValueError, OSError, TypeError, KeyError) as error:
-                record.update(status="error", error=error_message(error, keys))
-            save_json(path, study)
-
-        # Stage 2: classify complete answers, preserving previous Jev results.
-        for record in study["records"]:
-            if (
-                record["status"] != "complete"
-                or (record.get("classification") or {}).get("rubric_hash")
-                == rubric_hash
-            ):
-                continue
-            if not args.retry_failed and (
-                record.get("classification_status") == "in_progress"
-                or (record.get("classification_error") or {}).get("rubric_hash")
-                == rubric_hash
-            ):
-                continue
-            if args.limit is not None and requests >= args.limit:
-                break
-            if record.get("classification"):
-                record.setdefault("classification_history", []).append(
-                    {
-                        "classification": record["classification"],
-                        "review": record.get("review"),
-                    }
-                )
-                record.update(classification=None, review=None)
-            record["classification_status"] = "in_progress"
-            save_json(path, study)
-            requests += 1
-            try:
-                body = decision_body(
-                    questions_by_id[record["question_id"]], record["response"], rubric
-                )
-                raw = transport(TYPESAFE_ENDPOINT, body, keys["TYPESAFE_API_KEY"])
-                record["classification"] = dict(
-                    parse_decision(raw, body["questions"]["category"]["criteria"]),
-                    source="jev",
-                    endpoint=TYPESAFE_ENDPOINT,
-                    requested_model=body["model"],
-                    model=raw.get("model"),
-                    provider="TypeSafe",
-                    usage=raw.get("usage"),
-                    raw=raw,
-                    rubric_hash=rubric_hash,
-                    rubric_version=rubric["rubric_version"],
-                    classified_at=now(),
-                )
-                record.update(
-                    classification_error=None, classification_status="complete"
-                )
-            except (RuntimeError, ValueError, OSError, TypeError, KeyError) as error:
-                record.update(
-                    classification_status="error",
-                    classification_error={
-                        "message": error_message(error, keys),
-                        "rubric_hash": rubric_hash,
-                        "at": now(),
-                    },
-                )
-            save_json(path, study)
+        save_json(path, study)
+        print(
+            "%s / %s: classification %s"
+            % (record["question_id"], record["requested_model"], record["classification_status"]),
+            flush=True,
+        )
 
     # Stage 3: save local reviews and export the data the page will display.
     study["updated_at"] = now()

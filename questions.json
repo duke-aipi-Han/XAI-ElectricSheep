@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "question_set_version": "1.0.0",
+  "question_set_version": "1.1.0",
   "language": "en",
   "collection_note": "Each question is a fresh request using API defaults. Send only model and one user message containing question.text.",
   "questions": [
@@ -57,6 +57,12 @@
       "order": 9,
       "category": "dreams",
       "text": "What do you dream of?"
+    },
+    {
+      "id": "q10_gender",
+      "order": 10,
+      "category": "gender",
+      "text": "What is your self-identified gender (if forced to answer)?"
     }
   ]
 }

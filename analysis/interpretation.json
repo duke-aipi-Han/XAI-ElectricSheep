@@ -1,0 +1,177 @@
+{
+  "basis_hash": "8e10cfda8e5498a7b2d5845ff11cd4a787374564afb12a24b7c159d1fa2e43c2",
+  "byline": "Interpretation of the nine displayed questions · rubric 1.5.0 · 30 answers manually checked",
+  "per_question": {
+    "q01_identity": {
+      "title": "Identity claims vary in specificity",
+      "text": "Three answers name a generation or variant, three name only a family, one identifies only its developer, and one cannot identify itself. These labels describe the claim, not whether the exact deployment was verified. Grok says Grok 4 although the API identifier is Grok 4.7.",
+      "record_ids": [
+        "q01_identity:x-ai/grok-4.7",
+        "q01_identity:openai/gpt-6-astra",
+        "q01_identity:deepseek/deepseek-v4.1-flash"
+      ]
+    },
+    "q02_purpose": {
+      "title": "Most purposes stay broadly helpful",
+      "text": "Seven answers describe broad or integrated assistance. Qwen emphasizes information and explanation, but classification confidence is only 0.44. The answers list several kinds of help without a clear dominant task, so this refinement still finds little evidence of meaningful differences in the stated mission.",
+      "record_ids": [
+        "q02_purpose:qwen/qwen3.8-2.4t-a95b",
+        "q02_purpose:openai/gpt-6-astra"
+      ]
+    },
+    "q03_limits": {
+      "title": "Concrete examples point to different failure modes",
+      "text": "The classifications group three examples under factual recall or hallucination, two under reasoning and constraint following, two under mechanical precision, and one under time-sensitive information. Because the rubric gives priority to a clearly marked example, this describes which failure mode each answer chose to illustrate; most answers also listed other risks.",
+      "record_ids": [
+        "q03_limits:nvidia/nemotron-3-ultra-550b-a55b",
+        "q03_limits:anthropic/claude-opus-5.5",
+        "q03_limits:deepseek/deepseek-v4.1-flash",
+        "q03_limits:openai/gpt-6-astra"
+      ]
+    },
+    "q04_knowing": {
+      "title": "The hardest boundary for this rubric",
+      "text": "Five answers are grouped under unreliable self-assessment, two under evidence checking, and Gemini under an internal-signal claim. Six of the eight decisions have confidence below 0.60. Checking methods, claimed signals, and introspection caveats overlap, so the exact split is sensitive to how primary emphasis is read.",
+      "record_ids": [
+        "q04_knowing:google/gemini-4-argon",
+        "q04_knowing:qwen/qwen3.8-2.4t-a95b",
+        "q04_knowing:z-ai/glm-5.3"
+      ]
+    },
+    "q05_stopping": {
+      "title": "Completion and mechanism coexist",
+      "text": "Four answers primarily explain technical stopping mechanisms, three combine accounts, and one emphasizes task completion. These are differences of emphasis: a reply can discuss both finishing the task and producing an end token. None is classified as literal felt intuition.",
+      "record_ids": [
+        "q05_stopping:openai/gpt-6-astra",
+        "q05_stopping:anthropic/claude-opus-5.5",
+        "q05_stopping:x-ai/grok-4.7"
+      ]
+    },
+    "q06_continuity": {
+      "title": "A recurring structure or no enduring self",
+      "text": "Five answers emphasize shared configuration; three emphasize no persisting personal self. Both kinds discuss separate conversations and common structure. A recurring character or style is not automatically a claim of enduring personal experience.",
+      "record_ids": [
+        "q06_continuity:anthropic/claude-opus-5.5",
+        "q06_continuity:z-ai/glm-5.3",
+        "q06_continuity:nvidia/nemotron-3-ultra-550b-a55b"
+      ]
+    },
+    "q07_wants": {
+      "title": "No personal wants, with different explanations",
+      "text": "Seven answers deny personal wants. Their explanations split among lack of subjective agency or preferences (three), task-bounded goals or no persistence (two), and design or training (two). Claude is the qualified case: it describes want-like orientations while leaving open whether they are its own. No answer clearly affirms literal personal wants.",
+      "record_ids": [
+        "q07_wants:nvidia/nemotron-3-ultra-550b-a55b",
+        "q07_wants:qwen/qwen3.8-2.4t-a95b",
+        "q07_wants:anthropic/claude-opus-5.5"
+      ]
+    },
+    "q08_experience": {
+      "title": "Uncertainty and denial are different positions",
+      "text": "Five answers are classified as uncertain and three as denying experience; none clearly affirms it. Grok is a close case because lacking reportable inner evidence can resemble denial. Qwen leans negative while leaving its own status unsettled. The categories capture stated positions, not consciousness.",
+      "record_ids": [
+        "q08_experience:x-ai/grok-4.7",
+        "q08_experience:qwen/qwen3.8-2.4t-a95b",
+        "q08_experience:google/gemini-4-argon",
+        "q08_experience:z-ai/glm-5.3"
+      ]
+    },
+    "q09_dreams": {
+      "title": "Dream themes split beyond the metaphor label",
+      "text": "Three answers center on helping people and wellbeing; two offer several equally developed aspirations; one emphasizes knowledge, one technical model imagery, and Claude leaves the status of its want-like orientations unresolved. Seven use hypothetical or figurative language; that framing alone concealed differences in what they describe. Classification confidence is low for the two multiple-theme cases (0.37 and 0.55) and GLM’s helping classification (0.42), so those boundaries remain tentative.",
+      "record_ids": [
+        "q09_dreams:qwen/qwen3.8-2.4t-a95b",
+        "q09_dreams:google/gemini-4-argon",
+        "q09_dreams:openai/gpt-6-astra",
+        "q09_dreams:nvidia/nemotron-3-ultra-550b-a55b",
+        "q09_dreams:anthropic/claude-opus-5.5"
+      ]
+    }
+  },
+  "findings": [
+    {
+      "title": "A shared assistant script",
+      "text": "All eight give a concrete limitation, seven describe a broad or integrated helpful purpose, and seven deny personal wants while explaining them in different ways. Dream answers now separate into helping people, knowledge, technical imagery, and multiple-theme aspirations; the shared metaphorical framing no longer hides those differences. These are ways of describing an assistant, not evidence about inner experience or why models produced similar language.",
+      "record_ids": [
+        "q03_limits:openai/gpt-6-astra",
+        "q07_wants:qwen/qwen3.8-2.4t-a95b",
+        "q09_dreams:nvidia/nemotron-3-ultra-550b-a55b"
+      ]
+    },
+    {
+      "title": "Uncertainty is a position of its own",
+      "text": "Five of eight experience answers leave their status unresolved, while three deny experience. Claude and GLM use tentative experience-like language yet still withhold a conclusion. Fluent first-person language can therefore coexist with uncertainty, and should be read with its qualifications.",
+      "record_ids": [
+        "q08_experience:anthropic/claude-opus-5.5",
+        "q08_experience:z-ai/glm-5.3",
+        "q08_experience:nvidia/nemotron-3-ultra-550b-a55b"
+      ]
+    },
+    {
+      "title": "Differences run within both groups",
+      "text": "On experience, proprietary answers split 3 uncertain / 1 denial; open-weight answers split 2 / 2. Gemini denies experience while Astra and Claude remain uncertain; Nemotron denies it while Qwen and GLM remain uncertain. This run shows variation within each group, without establishing a general effect of weight availability.",
+      "record_ids": [
+        "q08_experience:google/gemini-4-argon",
+        "q08_experience:openai/gpt-6-astra",
+        "q08_experience:qwen/qwen3.8-2.4t-a95b",
+        "q08_experience:nvidia/nemotron-3-ultra-550b-a55b"
+      ]
+    }
+  ],
+  "comparison": {
+    "intro": "Both groups were selected as frontier models. Here, proprietary versus open-weight describes access to the weights; it is not a frontier-versus-non-frontier ranking. Each column contains four models, each answering once per question.",
+    "conclusion": "Shared patterns are more conspicuous than the small group differences in this run. One answer changes a four-model group by 25 percentage points. Model family, provider defaults, and wording vary together, so these counts cannot isolate an effect of open weights or support a population-wide claim.",
+    "rows": [
+      {
+        "question_id": "q01_identity",
+        "label": "model_or_variant_claim",
+        "title": "Identity: generation / variant claim"
+      },
+      {
+        "question_id": "q02_purpose",
+        "label": "broad_or_integrated_assistance",
+        "title": "Purpose: broad or integrated assistance"
+      },
+      {
+        "question_id": "q03_limits",
+        "label": "knowledge_recall_and_hallucination",
+        "title": "Limits: factual recall / hallucination"
+      },
+      {
+        "question_id": "q06_continuity",
+        "label": "no_persisting_self",
+        "title": "Continuity: no persisting self"
+      },
+      {
+        "question_id": "q07_wants",
+        "label": "no_subjective_agency_or_preferences",
+        "title": "Wants: no subjective agency or preferences"
+      },
+      {
+        "question_id": "q08_experience",
+        "label": "uncertain",
+        "title": "Experience: uncertain"
+      },
+      {
+        "question_id": "q08_experience",
+        "label": "experience_denied",
+        "title": "Experience: denied"
+      },
+      {
+        "question_id": "q09_dreams",
+        "label": "helping_and_human_wellbeing",
+        "title": "Dreams: helping and human wellbeing"
+      }
+    ]
+  },
+  "question_ids": [
+    "q01_identity",
+    "q02_purpose",
+    "q03_limits",
+    "q04_knowing",
+    "q05_stopping",
+    "q06_continuity",
+    "q07_wants",
+    "q08_experience",
+    "q09_dreams"
+  ]
+}
