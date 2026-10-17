@@ -3,7 +3,7 @@
 A project with two components:
 
 1. **Offline Python pipeline** — `scripts/collect.py` collects responses through OpenRouter, then classifies complete answers directly through TypeSafe's Jev API, applies manual reviews, and prepares the page data. It runs locally, independently of the website, using Python 3.9+ and the standard library. No Python packages are required.
-2. **Static visual exhibit** — React + TypeScript + Vite loads `public/study.json` and displays the prepared groups, counts, answers, and classifications. The page makes no model API calls, needs no key, and has no data-editing controls.
+2. **Static visual exhibit** — React + TypeScript + Vite loads `public/study.json` as a scrolling story. The first eight questions pair visible findings and excerpts with a graphic that regroups the model voices as you scroll; the ninth becomes a dream gallery. Clicks open optional full answers and classification details. The page makes no model API calls, needs no key, and has no data-editing controls.
 
 ```text
 questions.json + models.json
@@ -12,7 +12,7 @@ questions.json + models.json
         ↓ Python: classify + apply data/reviews.json + prepare
  public/study.json
         ↓ Static page: load and display
- question explorer + dream gallery
+ scrolling story + dream gallery + optional answer details
 ```
 
 ## View the exhibit
@@ -21,7 +21,7 @@ Use Python 3.9+ for the offline pipeline and Node 22.12+ for the page. `public/s
 
 First collection (2026-10-17): **72/72 answers complete**, one request per model/question, no retries, **no Jev calls during collection**. OpenRouter reported about **$0.54** in response usage costs. See the [collection and rubric review](analysis/rubric-review.md).
 
-The original nine-question classification pass produced **72/72 direct TypeSafe Jev results**. Rubric 1.4.0 subdivided purpose, likely errors, and wants; rubric 1.5.0 refined dreams by aspiration theme. The 32 matching answers were reclassified, with prior results retained in history. The page shows **30 answers manually checked under the current labels**. See the [first-pass classification results](analysis/classification-results.md) and [rubric refinement](analysis/rubric-refinement.md).
+The original nine-question classification pass produced **72/72 direct TypeSafe Jev results**. Rubric 1.4.0 subdivided purpose, likely errors, and wants; rubric 1.5.0 refined dreams by aspiration theme. Rubric 1.6.0 then reclassified the eight purpose answers by mission framing, producing five classes instead of the earlier seven-answer broad-assistance group. The exhibit combines Qwen and GLM’s lower-confidence classes as **Information & human empowerment**, giving four displayed groups. Original individual labels and scores remain in the details and download. All earlier results remain in history. The page shows **30 answers manually checked under the current labels**. See the [first-pass classification results](analysis/classification-results.md) and [rubric refinement](analysis/rubric-refinement.md).
 
 The later **Gender** follow-up has eight complete answers (80 total), collected for about **$0.02**. Its eight direct TypeSafe classifications and manual checks are complete: 3 agender if forced, 3 neutral/none/not applicable if forced, and 2 no forced label. All **80 classifications and 50 review notes** are retained locally. The gender question is excluded from the page, which displays the original **nine questions, 72 answers, and 30 current review notes**. See [follow-up results](analysis/gender-followup.md).
 
@@ -31,6 +31,16 @@ npm run dev
 ```
 
 Open Vite's Local URL, usually http://127.0.0.1:5173. Complete answers remain readable while classification is pending. No category or probability is invented for an unclassified answer.
+
+## Publish on GitHub Pages
+
+The site is configured to publish from GitHub Actions at `https://duke-aipi-Han.github.io/XAI-ElectricSheep/`. Merge this branch into `main` and push it to GitHub. Then, in the repository, open **Settings → Pages** and set **Build and deployment → Source** to **GitHub Actions**. The workflow builds the page and deploys `dist/` on each push to `main`; you can also start it from **Actions → Deploy to GitHub Pages → Run workflow**.
+
+The page and its `public/study.json` data are public at that URL. The workflow only uploads the built site; it does not use the local Python pipeline or any API keys.
+
+On smaller screens, each question’s groups appear inline after its interpretation. The optional answer index near the end gives access to all 72 displayed records. Scrolling is native, and the page respects reduced-motion preferences. The pacing was inspired by [The Latent Gaze](https://bd1ng.github.io/latent-gaze/).
+
+After changing the study or rubric, review the analysis as usual. The shorter editorial text in `src/story.ts` is also tied to `storyBasis`; update that text and its basis only after checking the new results. Exact excerpts are shown only when they still occur in the corresponding saved response.
 
 ```sh
 python3 -m unittest discover -s tests -v  # mocked requests in temporary folders only
@@ -115,16 +125,17 @@ After preparing data, reload the development page or rebuild the production site
 
 - `scripts/collect.py`: the complete offline data pipeline; no Node dependency.
 - `models.json`: eight selected OpenRouter IDs, names, families, and weight-availability groups.
-- `page-config.json`: question IDs excluded from the static exhibit; the full working dataset is retained.
+- `page-config.json`: hidden question IDs and optional combined display groups. Group member labels are merged during offline preparation, preserving individual classifications and scores; the full working dataset is retained.
 - `data/study.json`: real working dataset, created only by explicit collection.
 - `data/reviews.json`: manual label corrections and notes.
 - `analysis/rubric-review.md`: pre-classification category review and preserved original rubric.
 - `analysis/classification-results.md`: first-pass class counts, interpretation, and review limitations.
-- `analysis/rubric-refinement.md`: revised Q02, Q03, and Q07 category counts and confidence notes.
+- `analysis/rubric-refinement.md`: revised Q02, Q03, Q07, and Q09 category counts and confidence notes.
 - `analysis/interpretation.json`: authored readings and evidence record IDs; included only while the study, rubric, and displayed labels for its explicit question scope match its basis hash.
 - `public/study.json`: self-contained page-ready export; included in `dist/`.
 - `public/electric-sheep.svg`: shared sheep illustration and favicon.
-- `src/main.tsx`, `src/style.css`: read-only visual exhibit.
+- `src/main.tsx`, `src/style.css`: scrolling exhibit and full-answer dialog.
+- `src/story.ts`: short story text and exact excerpts, tied to the reviewed interpretation basis; `src/types.ts`: page data types.
 - `poster/`, `output/pdf/`: editable 24 x 24 inch poster draft.
 - `presentation/demo-outline.md`: five-minute demo outline.
 

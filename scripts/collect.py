@@ -207,10 +207,15 @@ def prepare(study, root):
     # Keep the working dataset separate from the self-contained static export.
     page = copy.deepcopy(study)
     config_path = root / "page-config.json"
-    hidden = read_json(config_path).get("hidden_question_ids", []) if config_path.exists() else []
+    page_config = read_json(config_path) if config_path.exists() else {}
+    hidden = page_config.get("hidden_question_ids", [])
+    combined_groups = page_config.get("classification_groups", {})
     question_ids = {q["id"] for q in study["questions"]}
     if not isinstance(hidden, list) or any(qid not in question_ids for qid in hidden):
         raise ValueError("page-config.json must list known hidden_question_ids.")
+    if not isinstance(combined_groups, dict) or any(qid not in question_ids for qid in combined_groups):
+        raise ValueError("classification_groups must refer to known question IDs.")
+    page["classification_groups"] = combined_groups
     page["questions"] = [q for q in page["questions"] if q["id"] not in hidden]
     page["records"] = [r for r in page["records"] if r["question_id"] not in hidden]
     page["prepared_at"] = now()
@@ -226,7 +231,18 @@ def prepare(study, root):
         qid = question["id"]
         records = [record for record in page["records"] if record["question_id"] == qid]
         criteria = page["rubric"]["per_question"].get(qid, {}).get("category", {}).get("criteria", {})
-        groups = {label: [] for label in criteria}
+        label_groups = {}
+        for group_label, group in combined_groups.get(qid, {}).items():
+            members = group.get("labels", [])
+            if (
+                not group.get("title") or group_label in criteria
+                or not isinstance(members, list) or len(members) < 2
+                or any(label not in criteria or label in label_groups for label in members)
+                or len(set(members)) != len(members)
+            ):
+                raise ValueError("Combined classification groups must name distinct known labels and a title.")
+            label_groups.update({label: group_label for label in members})
+        groups = {label_groups.get(label, label): [] for label in criteria}
         unfinished = []
         for index, record in enumerate(records):
             classification = record.get("classification") or {}
@@ -236,8 +252,9 @@ def prepare(study, root):
                 else None
             )
             record["voice_number"] = index + 1
-            if record["status"] == "complete" and record["display_label"] in groups:
-                groups[record["display_label"]].append(record["id"])
+            record["display_group"] = label_groups.get(record["display_label"], record["display_label"])
+            if record["status"] == "complete" and record["display_label"] in criteria:
+                groups[record["display_group"]].append(record["id"])
             else:
                 unfinished.append(record["id"])
         page["question_groups"][qid] = [
@@ -249,7 +266,7 @@ def prepare(study, root):
                 "total": sum(model_access.get(r["requested_model"]) == access for r in records),
                 "classified": sum(
                     model_access.get(r["requested_model"]) == access
-                    and r["status"] == "complete" and r["display_label"] in groups
+                    and r["status"] == "complete" and r["display_group"] in groups
                     for r in records
                 ),
             }
@@ -280,7 +297,7 @@ def prepare(study, root):
     scope = (interpretation or {}).get("question_ids", [q["id"] for q in page["questions"]])
     page["interpretation_basis"] = fingerprint({
         "study_id": study["id"], "rubric_hash": rubric_hash,
-        "labels": [[r["id"], r["display_label"]] for r in page["records"] if r["question_id"] in scope],
+        "labels": [[r["id"], r["display_group"]] for r in page["records"] if r["question_id"] in scope],
     })
     page["interpretation"] = (
         interpretation if interpretation and interpretation.get("basis_hash") == page["interpretation_basis"]
