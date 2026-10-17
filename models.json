@@ -1,13 +1,62 @@
 {
-  "note": "Replace all eight placeholder IDs with available OpenRouter chat model IDs before paid collection. Sample models are fictional and unrelated to real developers.",
+  "verified_on": "2026-10-17",
+  "note": "Four proprietary frontier models and four frontier open-weight models across eight families. IDs were checked against OpenRouter's public catalog. Open-weight means publicly released weights; licenses vary. sample_name is used only for fictional fixtures. Collection uses API defaults.",
   "models": [
-    { "id": "configure/model-01", "name": "Model 01", "sample_name": "Aster", "family": "Configure family" },
-    { "id": "configure/model-02", "name": "Model 02", "sample_name": "Birch", "family": "Configure family" },
-    { "id": "configure/model-03", "name": "Model 03", "sample_name": "Cairn", "family": "Configure family" },
-    { "id": "configure/model-04", "name": "Model 04", "sample_name": "Dune", "family": "Configure family" },
-    { "id": "configure/model-05", "name": "Model 05", "sample_name": "Ember", "family": "Configure family" },
-    { "id": "configure/model-06", "name": "Model 06", "sample_name": "Fern", "family": "Configure family" },
-    { "id": "configure/model-07", "name": "Model 07", "sample_name": "Grove", "family": "Configure family" },
-    { "id": "configure/model-08", "name": "Model 08", "sample_name": "Harbor", "family": "Configure family" }
+    {
+      "id": "openai/gpt-6-astra",
+      "name": "GPT-6 Astra",
+      "family": "OpenAI GPT",
+      "access": "proprietary",
+      "sample_name": "Aster"
+    },
+    {
+      "id": "anthropic/claude-opus-5.5",
+      "name": "Claude Opus 5.5",
+      "family": "Anthropic Claude",
+      "access": "proprietary",
+      "sample_name": "Birch"
+    },
+    {
+      "id": "google/gemini-4-argon",
+      "name": "Gemini 4 Argon",
+      "family": "Google Gemini",
+      "access": "proprietary",
+      "sample_name": "Cairn"
+    },
+    {
+      "id": "x-ai/grok-4.7",
+      "name": "Grok 4.7",
+      "family": "xAI Grok",
+      "access": "proprietary",
+      "sample_name": "Dune"
+    },
+    {
+      "id": "deepseek/deepseek-v4.1-flash",
+      "name": "DeepSeek V4.1 Flash",
+      "family": "DeepSeek",
+      "access": "open_weight",
+      "sample_name": "Ember"
+    },
+    {
+      "id": "qwen/qwen3.8-2.4t-a95b",
+      "name": "Qwen3.8 2.4T A95B",
+      "family": "Alibaba Qwen",
+      "access": "open_weight",
+      "sample_name": "Fern"
+    },
+    {
+      "id": "z-ai/glm-5.3",
+      "name": "GLM 5.3",
+      "family": "Z.ai GLM",
+      "access": "open_weight",
+      "sample_name": "Grove"
+    },
+    {
+      "id": "nvidia/nemotron-3-ultra-550b-a55b",
+      "name": "Nemotron 3 Ultra",
+      "family": "NVIDIA Nemotron",
+      "access": "open_weight",
+      "sample_name": "Harbor"
+    }
   ]
 }

@@ -467,7 +467,7 @@ function App({ study }: { study: Study }) {
             <a href="https://aclanthology.org/2024.findings-emnlp.703/">
               Self-Recognition in Language Models ↗
             </a>
-            <a href="https://openrouter.ai/docs/guides/community/jev">
+            <a href="https://docs.typesafe.ai/api">
               Jev documentation ↗
             </a>
             <a href="https://www.penguinrandomhouse.com/books/40617/do-androids-dream-of-electric-sheep-by-philip-k-dick/">

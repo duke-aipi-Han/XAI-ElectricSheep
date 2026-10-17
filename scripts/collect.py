@@ -20,6 +20,8 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parents[1]
+OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
+TYPESAFE_ENDPOINT = "https://api.typesafe.ai/v1/systemone"
 
 
 def now():
@@ -50,19 +52,28 @@ def fingerprint(value):
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def load_key(root):
-    """Read the one supported .env setting as text, without executing a shell."""
+def load_keys(root):
+    """Read the two API keys as text, without executing a shell."""
+    names = ("OPENROUTER_API_KEY", "TYPESAFE_API_KEY")
     path = root / ".env"
     if path.exists():
         for line in path.read_text(encoding="utf-8").splitlines():
             key, separator, value = line.strip().partition("=")
-            if separator and key.strip() == "OPENROUTER_API_KEY":
+            if separator and key.strip() in names:
                 parts = shlex.split(value, comments=True)
                 os.environ.setdefault(key.strip(), parts[0] if parts else "")
-    key = os.environ.get("OPENROUTER_API_KEY", "").strip()
-    if not key:
-        raise ValueError("Set OPENROUTER_API_KEY in .env before using --live.")
-    return key
+    keys = {name: os.environ.get(name, "").strip() for name in names}
+    missing = [name for name, value in keys.items() if not value]
+    if missing:
+        raise ValueError("Set %s in .env before using --live." % ", ".join(missing))
+    return keys
+
+
+def error_message(error, keys):
+    message = str(error)
+    for key in keys.values():
+        message = message.replace(key, "[redacted]")
+    return message
 
 
 def chat_body(model_id, question):
@@ -108,8 +119,12 @@ def parse_decision(raw, criteria):
 
 
 def post(endpoint, body, key):
+    providers = {OPENROUTER_ENDPOINT: "OpenRouter", TYPESAFE_ENDPOINT: "TypeSafe"}
+    if endpoint not in providers:
+        raise ValueError("Unsupported API endpoint.")
+    provider = providers[endpoint]
     request = Request(
-        "https://openrouter.ai/api/" + endpoint,
+        endpoint,
         data=json.dumps(body).encode("utf-8"),
         headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"},
         method="POST",
@@ -119,8 +134,8 @@ def post(endpoint, body, key):
             raw = json.load(response)
     except HTTPError as error:
         raise RuntimeError(
-            "OpenRouter HTTP %s. Check model availability, account, or rate limits."
-            % error.code
+            "%s HTTP %s. Check model availability, account, or rate limits."
+            % (provider, error.code)
         ) from None
     except (URLError, TimeoutError) as error:
         raise RuntimeError(
@@ -128,7 +143,8 @@ def post(endpoint, body, key):
         ) from None
     if raw.get("error"):
         raise RuntimeError(
-            "OpenRouter returned an error. Check the account and model configuration."
+            "%s returned an error. Check the account and model configuration."
+            % provider
         )
     return raw
 
@@ -262,7 +278,12 @@ def main(argv=None, root=ROOT, transport=post):
                 "family": "Fictional test model",
             }
             if args.sample
-            else {"id": m["id"], "name": m["name"], "family": m["family"]}
+            else {
+                "id": m["id"],
+                "name": m["name"],
+                "family": m["family"],
+                "access": m.get("access", "unspecified"),
+            }
         )
         for m in configured
     ]
@@ -280,7 +301,7 @@ def main(argv=None, root=ROOT, transport=post):
         raise ValueError(
             "Replace all eight placeholder IDs in models.json before collection."
         )
-    key = load_key(root) if args.live else None
+    keys = load_keys(root) if args.live else {}
     path = root / ("data/sample-study.json" if args.sample else "data/study.json")
     config_hash = fingerprint({"questions": questions, "models": models})
     rubric_hash = fingerprint(rubric)
@@ -382,12 +403,12 @@ def main(argv=None, root=ROOT, transport=post):
             requests += 1
             try:
                 raw = transport(
-                    "v1/chat/completions",
+                    OPENROUTER_ENDPOINT,
                     chat_body(
                         record["requested_model"],
                         questions_by_id[record["question_id"]],
                     ),
-                    key,
+                    keys["OPENROUTER_API_KEY"],
                 )
                 choice = (raw.get("choices") or [{}])[0]
                 content = (choice.get("message") or {}).get("content")
@@ -414,9 +435,7 @@ def main(argv=None, root=ROOT, transport=post):
                 if choice.get("error"):
                     record["error"] = "Provider reported a generation error."
             except (RuntimeError, ValueError, OSError, TypeError, KeyError) as error:
-                record.update(
-                    status="error", error=str(error).replace(key, "[redacted]")
-                )
+                record.update(status="error", error=error_message(error, keys))
             save_json(path, study)
 
         # Stage 2: classify complete answers, preserving previous Jev results.
@@ -450,12 +469,14 @@ def main(argv=None, root=ROOT, transport=post):
                 body = decision_body(
                     questions_by_id[record["question_id"]], record["response"], rubric
                 )
-                raw = transport("alpha/decisions", body, key)
+                raw = transport(TYPESAFE_ENDPOINT, body, keys["TYPESAFE_API_KEY"])
                 record["classification"] = dict(
                     parse_decision(raw, body["questions"]["category"]["criteria"]),
                     source="jev",
+                    endpoint=TYPESAFE_ENDPOINT,
+                    requested_model=body["model"],
                     model=raw.get("model"),
-                    provider=raw.get("provider"),
+                    provider="TypeSafe",
                     usage=raw.get("usage"),
                     raw=raw,
                     rubric_hash=rubric_hash,
@@ -469,7 +490,7 @@ def main(argv=None, root=ROOT, transport=post):
                 record.update(
                     classification_status="error",
                     classification_error={
-                        "message": str(error).replace(key, "[redacted]"),
+                        "message": error_message(error, keys),
                         "rubric_hash": rubric_hash,
                         "at": now(),
                     },

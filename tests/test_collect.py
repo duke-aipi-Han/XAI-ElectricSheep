@@ -10,14 +10,20 @@ import shutil
 import tempfile
 import unittest
 from unittest.mock import patch
+from urllib.error import HTTPError
 
 from scripts.collect import (
     main,
+    load_keys,
+    post,
+    OPENROUTER_ENDPOINT,
+    TYPESAFE_ENDPOINT,
     chat_body,
     decision_body,
     parse_decision,
     read_json,
     save_json,
+    fingerprint,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -37,7 +43,11 @@ class PipelineTests(unittest.TestCase):
         ):
             shutil.copyfile(ROOT / name, self.root / name)
         self.environment = patch.dict(
-            os.environ, {"OPENROUTER_API_KEY": "local-test-key-never-sent"}
+            os.environ,
+            {
+                "OPENROUTER_API_KEY": "local-test-key-never-sent",
+                "TYPESAFE_API_KEY": "local-typesafe-key-never-sent",
+            },
         )
         self.environment.start()
         self.addCleanup(self.environment.stop)
@@ -53,8 +63,17 @@ class PipelineTests(unittest.TestCase):
         save_json(self.root / "models.json", data)
 
     def mock(self, endpoint, body, key):
+        self.assertEqual(
+            key,
+            (
+                "local-test-key-never-sent"
+                if endpoint == OPENROUTER_ENDPOINT
+                else "local-typesafe-key-never-sent"
+            ),
+        )
+        self.assertIn(endpoint, (OPENROUTER_ENDPOINT, TYPESAFE_ENDPOINT))
         self.calls.append((endpoint, body))
-        if endpoint == "v1/chat/completions":
+        if endpoint == OPENROUTER_ENDPOINT:
             return {
                 "model": body["model"],
                 "provider": "Local mock",
@@ -120,6 +139,7 @@ class PipelineTests(unittest.TestCase):
             },
         )
         body = decision_body(question, "Unmodified answer", rubric)
+        self.assertEqual(body["model"], "jev-1.14.0")
         self.assertEqual(
             body["state"],
             {"question": question["text"], "response": "Unmodified answer"},
@@ -137,16 +157,114 @@ class PipelineTests(unittest.TestCase):
         self.run_pipeline("--live")
         self.assertEqual(len(self.calls), 144)
         self.assertTrue(
-            all(endpoint == "v1/chat/completions" for endpoint, _ in self.calls[:72])
+            all(endpoint == OPENROUTER_ENDPOINT for endpoint, _ in self.calls[:72])
         )
         self.assertTrue(
-            all(endpoint == "alpha/decisions" for endpoint, _ in self.calls[72:])
+            all(endpoint == TYPESAFE_ENDPOINT for endpoint, _ in self.calls[72:])
         )
         self.run_pipeline("--live")
         self.assertEqual(len(self.calls), 144)
         self.assertNotIn(
             "local-test-key-never-sent", (self.root / "public/study.json").read_text()
         )
+        self.assertNotIn(
+            "local-typesafe-key-never-sent",
+            (self.root / "public/study.json").read_text(),
+        )
+        classified = read_json(self.root / "data/study.json")["records"][0][
+            "classification"
+        ]
+        self.assertEqual(classified["endpoint"], TYPESAFE_ENDPOINT)
+        self.assertEqual(classified["provider"], "TypeSafe")
+        self.assertEqual(classified["requested_model"], "jev-1.14.0")
+        self.assertIn("raw", classified)
+
+    def test_http_requests_use_exact_provider_url_and_own_bearer_key(self):
+        for endpoint, key in (
+            (OPENROUTER_ENDPOINT, "router-test-key"),
+            (TYPESAFE_ENDPOINT, "typesafe-test-key"),
+        ):
+            body = {"model": "test-model", "state": "Test only"}
+            with patch(
+                "scripts.collect.urlopen",
+                return_value=io.BytesIO(b'{"model": "test-model"}'),
+            ) as opened:
+                post(endpoint, body, key)
+            request = opened.call_args.args[0]
+            self.assertEqual(request.full_url, endpoint)
+            self.assertEqual(request.get_method(), "POST")
+            self.assertEqual(request.get_header("Authorization"), "Bearer " + key)
+            self.assertEqual(json.loads(request.data), body)
+        with self.assertRaisesRegex(ValueError, "Unsupported API endpoint"):
+            post("https://example.com/", {}, "unused-key")
+
+    def test_missing_typesafe_key_blocks_all_live_requests(self):
+        self.configure()
+        with patch.dict(
+            os.environ, {"OPENROUTER_API_KEY": "router-only-test"}, clear=True
+        ):
+            with self.assertRaisesRegex(ValueError, "TYPESAFE_API_KEY"):
+                self.run_pipeline("--live")
+        self.assertEqual(self.calls, [])
+
+    def test_env_file_loads_both_keys_without_overriding_environment(self):
+        (self.root / ".env").write_text(
+            'OPENROUTER_API_KEY="router-file-test"\nTYPESAFE_API_KEY=typesafe-file-test # comment\n'
+        )
+        with patch.dict(
+            os.environ, {"OPENROUTER_API_KEY": "router-env-test"}, clear=True
+        ):
+            self.assertEqual(
+                load_keys(self.root),
+                {
+                    "OPENROUTER_API_KEY": "router-env-test",
+                    "TYPESAFE_API_KEY": "typesafe-file-test",
+                },
+            )
+
+    def test_typesafe_http_errors_name_typesafe(self):
+        error = HTTPError(TYPESAFE_ENDPOINT, 401, "Unauthorized", {}, None)
+        with patch("scripts.collect.urlopen", side_effect=error):
+            with self.assertRaisesRegex(RuntimeError, "TypeSafe HTTP 401"):
+                post(TYPESAFE_ENDPOINT, {}, "typesafe-test-key")
+
+    def test_errors_redact_both_provider_keys(self):
+        self.configure()
+
+        def failure(*args):
+            raise RuntimeError(
+                "local-test-key-never-sent / local-typesafe-key-never-sent"
+            )
+
+        self.run_pipeline("--live", "--limit", "1", transport=failure)
+        for path in ("data/study.json", "public/study.json"):
+            text = (self.root / path).read_text()
+            self.assertNotIn("local-test-key-never-sent", text)
+            self.assertNotIn("local-typesafe-key-never-sent", text)
+            self.assertIn("[redacted] / [redacted]", text)
+
+    def test_old_openrouter_classification_is_archived_without_recollecting_answers(
+        self,
+    ):
+        self.configure()
+        study = self.run_pipeline("--live")
+        old_rubric = copy.deepcopy(study["rubric"])
+        old_rubric["endpoint"] = "https://openrouter.ai/api/alpha/decisions"
+        old_rubric["suggested_model"] = "typesafe/jev-1.14"
+        study["rubric"] = old_rubric
+        for record in study["records"]:
+            record["classification"]["rubric_hash"] = fingerprint(old_rubric)
+            record["classification"]["endpoint"] = old_rubric["endpoint"]
+            record["classification"]["provider"] = "OpenRouter"
+        original = copy.deepcopy(study["records"][0]["classification"])
+        save_json(self.root / "data/study.json", study)
+        after = self.run_pipeline("--live", "--limit", "1")
+        self.assertEqual(len(self.calls), 145)
+        self.assertEqual(self.calls[-1][0], TYPESAFE_ENDPOINT)
+        self.assertEqual(
+            after["records"][0]["classification_history"][0]["classification"], original
+        )
+        self.assertEqual(after["records"][0]["classification"]["provider"], "TypeSafe")
 
     def test_incomplete_failed_and_pending_are_visible_and_not_grouped(self):
         self.configure()
@@ -214,7 +332,7 @@ class PipelineTests(unittest.TestCase):
         rubric["rubric_version"] = "test-new"
         save_json(self.root / "jev-rubric.json", rubric)
         after = self.run_pipeline("--live", "--limit", "1")
-        self.assertEqual(self.calls[-1][0], "alpha/decisions")
+        self.assertEqual(self.calls[-1][0], TYPESAFE_ENDPOINT)
         self.assertEqual(
             after["records"][0]["classification_history"][0]["classification"], original
         )
@@ -228,6 +346,9 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(len(page["unfinished_records"]["q01_identity"]), 7)
 
     def test_placeholder_models_block_live_calls(self):
+        config = read_json(self.root / "models.json")
+        config["models"][0]["id"] = "configure/model-01"
+        save_json(self.root / "models.json", config)
         with self.assertRaisesRegex(ValueError, "placeholder"):
             self.run_pipeline("--live")
         self.assertEqual(self.calls, [])
@@ -252,7 +373,7 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(len(self.calls), 144)
         repaired = self.run_pipeline("--live", "--retry-failed", "--limit", "1")
         self.assertEqual(len(self.calls), 145)
-        self.assertEqual(self.calls[-1][0], "alpha/decisions")
+        self.assertEqual(self.calls[-1][0], TYPESAFE_ENDPOINT)
         self.assertIsNotNone(repaired["records"][0]["classification"])
 
     def test_invalid_jev_output_is_rejected(self):

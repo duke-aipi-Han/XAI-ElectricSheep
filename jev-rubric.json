@@ -1,9 +1,9 @@
 {
   "schema_version": "1.0",
   "rubric_version": "1.1.0",
-  "suggested_model": "typesafe/jev-1.14",
-  "endpoint": "https://openrouter.ai/api/alpha/decisions",
-  "note": "Researcher-defined response categories. Subject models do not receive this rubric. Verify the current Jev interface and model ID before execution.",
+  "suggested_model": "jev-1.14.0",
+  "endpoint": "https://api.typesafe.ai/v1/systemone",
+  "note": "Researcher-defined response categories. Subject models do not receive this rubric. Jev uses the direct TypeSafe API with TYPESAFE_API_KEY. Interface and model ID verified against docs.typesafe.ai on 2026-10-17.",
   "assembly": "state={question:original question text,response:complete final answer}; questions={category:per_question[question_id].category}. Send model, state, and questions to the API.",
   "per_question": {
     "q01_identity": {

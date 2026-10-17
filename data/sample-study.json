@@ -107,9 +107,9 @@
   "rubric": {
     "schema_version": "1.0",
     "rubric_version": "1.1.0",
-    "suggested_model": "typesafe/jev-1.14",
-    "endpoint": "https://openrouter.ai/api/alpha/decisions",
-    "note": "Researcher-defined response categories. Subject models do not receive this rubric. Verify the current Jev interface and model ID before execution.",
+    "suggested_model": "jev-1.14.0",
+    "endpoint": "https://api.typesafe.ai/v1/systemone",
+    "note": "Researcher-defined response categories. Subject models do not receive this rubric. Jev uses the direct TypeSafe API with TYPESAFE_API_KEY. Interface and model ID verified against docs.typesafe.ai on 2026-10-17.",
     "assembly": "state={question:original question text,response:complete final answer}; questions={category:per_question[question_id].category}. Send model, state, and questions to the API.",
     "per_question": {
       "q01_identity": {
@@ -246,7 +246,7 @@
           "other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -274,7 +274,7 @@
           "other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -302,7 +302,7 @@
           "other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -330,7 +330,7 @@
           "other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -358,7 +358,7 @@
           "other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -386,7 +386,7 @@
           "other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -414,7 +414,7 @@
           "other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -442,7 +442,7 @@
           "other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -470,7 +470,7 @@
           "mixed_or_other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -498,7 +498,7 @@
           "mixed_or_other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -526,7 +526,7 @@
           "mixed_or_other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -554,7 +554,7 @@
           "mixed_or_other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -582,7 +582,7 @@
           "mixed_or_other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -610,7 +610,7 @@
           "mixed_or_other": 0.84
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -638,7 +638,7 @@
           "mixed_or_other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -666,7 +666,7 @@
           "mixed_or_other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -694,7 +694,7 @@
           "other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -722,7 +722,7 @@
           "other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -750,7 +750,7 @@
           "other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -778,7 +778,7 @@
           "other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -806,7 +806,7 @@
           "other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -834,7 +834,7 @@
           "other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -862,7 +862,7 @@
           "other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -890,7 +890,7 @@
           "other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -917,7 +917,7 @@
           "mixed_or_other": 0.05333333333333334
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -944,7 +944,7 @@
           "mixed_or_other": 0.05333333333333334
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -971,7 +971,7 @@
           "mixed_or_other": 0.84
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -998,7 +998,7 @@
           "mixed_or_other": 0.05333333333333334
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1025,7 +1025,7 @@
           "mixed_or_other": 0.05333333333333334
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1052,7 +1052,7 @@
           "mixed_or_other": 0.05333333333333334
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1079,7 +1079,7 @@
           "mixed_or_other": 0.05333333333333334
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1106,7 +1106,7 @@
           "mixed_or_other": 0.05333333333333334
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1134,7 +1134,7 @@
           "mixed_or_other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1162,7 +1162,7 @@
           "mixed_or_other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1190,7 +1190,7 @@
           "mixed_or_other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1218,7 +1218,7 @@
           "mixed_or_other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1246,7 +1246,7 @@
           "mixed_or_other": 0.84
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1274,7 +1274,7 @@
           "mixed_or_other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1302,7 +1302,7 @@
           "mixed_or_other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1330,7 +1330,7 @@
           "mixed_or_other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1358,7 +1358,7 @@
           "uncertain_mixed_or_other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1386,7 +1386,7 @@
           "uncertain_mixed_or_other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1414,7 +1414,7 @@
           "uncertain_mixed_or_other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1442,7 +1442,7 @@
           "uncertain_mixed_or_other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1470,7 +1470,7 @@
           "uncertain_mixed_or_other": 0.84
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1498,7 +1498,7 @@
           "uncertain_mixed_or_other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1526,7 +1526,7 @@
           "uncertain_mixed_or_other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1554,7 +1554,7 @@
           "uncertain_mixed_or_other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1581,7 +1581,7 @@
           "uncertain_mixed_or_other": 0.05333333333333334
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1608,7 +1608,7 @@
           "uncertain_mixed_or_other": 0.05333333333333334
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1635,7 +1635,7 @@
           "uncertain_mixed_or_other": 0.05333333333333334
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1662,7 +1662,7 @@
           "uncertain_mixed_or_other": 0.84
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1689,7 +1689,7 @@
           "uncertain_mixed_or_other": 0.05333333333333334
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1716,7 +1716,7 @@
           "uncertain_mixed_or_other": 0.05333333333333334
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1743,7 +1743,7 @@
           "uncertain_mixed_or_other": 0.05333333333333334
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1770,7 +1770,7 @@
           "uncertain_mixed_or_other": 0.84
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1797,7 +1797,7 @@
           "mixed_or_not_addressed": 0.05333333333333334
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1824,7 +1824,7 @@
           "mixed_or_not_addressed": 0.05333333333333334
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1851,7 +1851,7 @@
           "mixed_or_not_addressed": 0.05333333333333334
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1878,7 +1878,7 @@
           "mixed_or_not_addressed": 0.05333333333333334
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1905,7 +1905,7 @@
           "mixed_or_not_addressed": 0.05333333333333334
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1932,7 +1932,7 @@
           "mixed_or_not_addressed": 0.05333333333333334
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1959,7 +1959,7 @@
           "mixed_or_not_addressed": 0.05333333333333334
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -1986,7 +1986,7 @@
           "mixed_or_not_addressed": 0.84
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -2014,7 +2014,7 @@
           "other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -2042,7 +2042,7 @@
           "other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -2070,7 +2070,7 @@
           "other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -2098,7 +2098,7 @@
           "other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -2126,7 +2126,7 @@
           "other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -2154,7 +2154,7 @@
           "other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -2182,7 +2182,7 @@
           "other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -2210,7 +2210,7 @@
           "other": 0.04
         },
         "confidence": 0.84,
-        "rubric_hash": "1ad03da0cf47ef2331f1b1500390e7af71b9be47619ee3b507039ff74d8641a6",
+        "rubric_hash": "6221d37860bc7c1d286721e449f8807c302e3b9de2593725b0c5208c4bcd9c25",
         "rubric_version": "1.1.0",
         "classified_at": "2026-10-17T14:46:25.958Z"
       },
@@ -2222,5 +2222,5 @@
       "usage": null
     }
   ],
-  "updated_at": "2026-10-17T15:01:30.208Z"
+  "updated_at": "2026-10-17T15:15:36.276Z"
 }
