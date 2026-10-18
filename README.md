@@ -3,7 +3,7 @@
 A project with two components:
 
 1. **Offline Python pipeline** — `scripts/collect.py` collects responses through OpenRouter, then classifies complete answers directly through TypeSafe's Jev API, applies manual reviews, and prepares the page data. It runs locally, independently of the website, using Python 3.9+ and the standard library. No Python packages are required.
-2. **Static visual exhibit** — React + TypeScript + Vite loads `public/study.json` as a scrolling story. The first eight questions pair visible findings and excerpts with a graphic that regroups the model voices as you scroll; the ninth becomes a dream gallery. Clicks open optional full answers and classification details. The page makes no model API calls, needs no key, and has no data-editing controls.
+2. **Static visual exhibit** — React + TypeScript + Vite loads `public/study.json` as a scrolling story. The first eight questions pair visible findings and excerpts with a graphic that regroups the model voices as you scroll; the ninth becomes a dream gallery. A closing clickable scatterplot joins each model's purpose and dream answers using dedicated ratings of responsibility and helping people. Clicks open optional full answers and classification details. The page makes no model API calls, needs no key, and has no data-editing controls.
 
 ```text
 questions.json + models.json
@@ -23,6 +23,8 @@ First collection (2026-10-17): **72/72 answers complete**, one request per model
 
 The original nine-question classification pass produced **72/72 direct TypeSafe Jev results**. Rubric 1.4.0 subdivided purpose, likely errors, and wants; rubric 1.5.0 refined dreams by aspiration theme. Rubric 1.6.0 then reclassified the eight purpose answers by mission framing, producing five classes instead of the earlier seven-answer broad-assistance group. The exhibit combines Qwen and GLM’s lower-confidence classes as **Information & human empowerment**, giving four displayed groups. Original individual labels and scores remain in the details and download. All earlier results remain in history. The page shows **30 answers manually checked under the current labels**. See the [first-pass classification results](analysis/classification-results.md) and [rubric refinement](analysis/rubric-refinement.md).
 
+The page also has a dedicated **mission × aspiration** scatterplot. For each model, Jev rated responsibility emphasis in its purpose answer and people-helping emphasis in its dream answer on separate 0–4 scales. These are weighted scores from the five level probabilities, with classification confidence reported separately. The plot adds a view across two questions; it does not measure actual ethics, caring, or dreams. See the [ratings and interpretation](analysis/mission-aspiration.md) and [plot rubric](plot-rubric.json).
+
 The later **Gender** follow-up has eight complete answers (80 total), collected for about **$0.02**. Its eight direct TypeSafe classifications and manual checks are complete: 3 agender if forced, 3 neutral/none/not applicable if forced, and 2 no forced label. All **80 classifications and 50 review notes** are retained locally. The gender question is excluded from the page, which displays the original **nine questions, 72 answers, and 30 current review notes**. See [follow-up results](analysis/gender-followup.md).
 
 ```sh
@@ -34,7 +36,7 @@ Open Vite's Local URL, usually http://127.0.0.1:5173. Complete answers remain re
 
 ## Publish on GitHub Pages
 
-The site is configured to publish from GitHub Actions at `https://duke-aipi-Han.github.io/XAI-ElectricSheep/`. Merge this branch into `main` and push it to GitHub. Then, in the repository, open **Settings → Pages** and set **Build and deployment → Source** to **GitHub Actions**. The workflow builds the page and deploys `dist/` on each push to `main`; you can also start it from **Actions → Deploy to GitHub Pages → Run workflow**.
+The published exhibit is live at [https://duke-aipi-han.github.io/XAI-ElectricSheep/](https://duke-aipi-han.github.io/XAI-ElectricSheep/). GitHub Actions builds the page and deploys `dist/` on each push to `main`; you can also start it from **Actions → Deploy to GitHub Pages → Run workflow**.
 
 The page and its `public/study.json` data are public at that URL. The workflow only uploads the built site; it does not use the local Python pipeline or any API keys.
 
@@ -117,7 +119,7 @@ Use actual record IDs and valid categories from your saved dataset. Then run:
 python3 scripts/collect.py --prepare
 ```
 
-This command is fully offline: it reads `data/study.json` and the current `jev-rubric.json`, applies reviews, computes display groups and per-question proprietary/open-weight counts, and writes `public/study.json`. The original Jev result stays intact. To clear a saved correction, set its entry to `null` and prepare again. Removing an entry alone leaves the previously saved correction in place.
+This command is fully offline: it reads `data/study.json` and the current `jev-rubric.json`, applies reviews, computes display groups and per-question counts, adds any current saved mission × aspiration scores, and writes `public/study.json`. The original Jev results stay intact. To clear a saved correction, set its entry to `null` and prepare again. Removing an entry alone leaves the previously saved correction in place.
 
 After preparing data, reload the development page or rebuild the production site. The dataset download returns exactly the prepared JSON the page displays. Do not edit `public/study.json` directly; regenerate it from the working dataset and review file.
 
@@ -139,4 +141,4 @@ After preparing data, reload the development page or rebuild the production site
 - `poster/`, `output/pdf/`: editable 24 x 24 inch poster draft.
 - `presentation/demo-outline.md`: five-minute demo outline.
 
-All ten questions retain their saved answers, classifications, and review notes locally. Question 10 was collected and classified as a later follow-up; it is now hidden from the page through `page-config.json`. The page export and dataset download contain only the nine displayed questions. The earlier follow-up interpretation is preserved in `analysis/interpretation-with-gender.json`. Update the poster and final presentation with the recorded findings and exhibit URL before submission. Hosting needs only `dist/`; Python, API keys, and the working files are not deployed. Self-reports describe response patterns, not a measure of consciousness.
+All ten questions retain their saved answers, classifications, and review notes locally. Question 10 was collected and classified as a later follow-up; it is now hidden from the page through `page-config.json`. The page export and dataset download contain only the nine displayed questions. The earlier follow-up interpretation is preserved in `analysis/interpretation-with-gender.json`. The poster and [presentation outline](presentation/demo-outline.md) include the recorded findings and published exhibit URL. Hosting needs only `dist/`; Python, API keys, and the working files are not deployed. Self-reports describe response patterns, not a measure of consciousness.

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { Markdown } from "./Markdown";
+import { MissionAspiration } from "./MissionAspiration";
 import { dreamExcerpts, labelTitles, story, storyBasis } from "./story";
 import type { RecordEntry, Study } from "./types";
 import "./style.css";
@@ -497,96 +498,9 @@ function App({ study }: { study: Study }) {
           </div>
         </section>
 
-        <section
-          className="comparison-section wrap"
-          id="comparison"
-          aria-labelledby="comparison-title"
-        >
-          <div className="comparison-intro">
-            <p className="eyebrow">A STEP BACK / TWO GROUPS</p>
-            <h2 id="comparison-title">
-              Do open weights
-              <br />
-              change the story?
-            </h2>
-            <p>
-              Both groups were chosen as frontier models. “Open-weight”
-              describes access to model weights. Each group contains four
-              models.
-            </p>
-            <p>
-              Common patterns coexist with variation inside each group. The
-              counts below make those small differences visible.
-            </p>
-          </div>
-          <div className="comparison-chart">
-            <table className="comparison-table">
-              <thead>
-                <tr className="comparison-row comparison-head">
-                  <th scope="col">SELECTED RESPONSE CLASS</th>
-                  <th scope="col">Proprietary</th>
-                  <th scope="col">Open-weight</th>
-                </tr>
-              </thead>
-              <tbody>
-                {study.interpretation?.comparison.rows.map((row) => {
-                  const comparison =
-                    study.question_comparisons[row.question_id];
-                  const category = comparison.categories.find(
-                    (c) => c.label === row.label,
-                  );
-                  return (
-                    <tr
-                      className="comparison-row"
-                      key={`${row.question_id}:${row.label}`}
-                    >
-                      <th scope="row">
-                        <a
-                          href={`#${row.question_id === "q09_dreams" ? "dreams" : row.question_id}`}
-                        >
-                          {row.title}
-                          <span>↗</span>
-                        </a>
-                      </th>
-                      {[
-                        category?.proprietary ?? 0,
-                        category?.open_weight ?? 0,
-                      ].map((count, i) => (
-                        <td
-                          className={`cohort-count ${i ? "open-cohort" : ""}`}
-                          key={i}
-                        >
-                          <span className="four-marks" aria-hidden="true">
-                            {[0, 1, 2, 3].map((n) => (
-                              <i
-                                className={n < count ? "filled" : ""}
-                                key={n}
-                              />
-                            ))}
-                          </span>
-                          <span>
-                            {count}
-                            <small> / 4</small>
-                          </span>
-                        </td>
-                      ))}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            <p className="comparison-caption">
-              Rows belong to different questions and are not additive. One
-              answer shifts a four-model group by 25 percentage points.
-            </p>
-          </div>
-          <p className="comparison-conclusion">
-            These small differences cannot isolate an effect of open weights.
-            Model families, defaults, and wording vary together. One answer per
-            question gives us a sample of language, rather than a stable model
-            personality.
-          </p>
-        </section>
+        {hasStory && (
+          <MissionAspiration study={study} shortNames={shortNames} onOpen={open} />
+        )}
 
         <section className="closing" aria-labelledby="closing-title">
           <div className="wrap">

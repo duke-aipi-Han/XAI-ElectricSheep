@@ -157,6 +157,71 @@ def post(endpoint, body, key):
     return raw
 
 
+def plot_state(study, model_id, rubric):
+    """Build anonymous evidence for the dedicated plot axes."""
+    questions = {q["id"]: q for q in study["questions"]}
+    state = {}
+    for axis, config in rubric["axes"].items():
+        question_id = config["question_id"]
+        record = next((r for r in study["records"]
+                       if r["requested_model"] == model_id
+                       and r["question_id"] == question_id), None)
+        if not record or record["status"] != "complete" or not record.get("response"):
+            raise ValueError("Missing complete plot evidence: " + model_id + "/" + question_id)
+        state[axis] = {"question": questions[question_id]["text"], "response": record["response"]}
+    return state
+
+
+def parse_plot_scores(raw, rubric):
+    """Validate TypeSafe Score values, preserving confidence separately."""
+    scores = {}
+    for axis, config in rubric["axes"].items():
+        answer = raw.get("answers", {}).get(axis, {})
+        maximum = len(config["question"]["criteria"]) - 1
+        score = answer.get("score")
+        probabilities = answer.get("probabilities")
+        if (
+            answer.get("type") != "score" or maximum < 1
+            or type(score) not in (int, float) or not probability(score / maximum)
+            or not isinstance(probabilities, dict)
+            or set(probabilities) != {str(i) for i in range(maximum + 1)}
+            or any(not probability(p) for p in probabilities.values())
+            or abs(sum(probabilities.values()) - 1) > 0.02
+        ):
+            raise ValueError("Invalid plot Score result: " + axis)
+        expected = sum(int(level) * p for level, p in probabilities.items())
+        if abs(expected - score) > 0.05:
+            raise ValueError("Plot score does not match its level probabilities: " + axis)
+        confidence = answer.get("confidence")
+        if confidence is not None and not probability(confidence):
+            raise ValueError("Invalid plot confidence: " + axis)
+        scores[axis] = {"score": score, "normalized_score": score / maximum,
+                        "confidence": confidence, "probabilities": probabilities}
+    return scores
+
+
+def prepared_plot(study, root):
+    """Include only results matching the current plot rubric and answer text."""
+    path = root / "data/mission-aspiration.json"
+    rubric_path = root / "plot-rubric.json"
+    if not path.exists() or not rubric_path.exists():
+        return None
+    saved = read_json(path)
+    rubric = read_json(rubric_path)
+    if saved.get("study_id") != study["id"] or saved.get("rubric_hash") != fingerprint(rubric):
+        return None
+    records = []
+    for model in study["models"]:
+        entry = saved.get("records", {}).get(model["id"], {})
+        if entry.get("status") != "complete":
+            continue
+        if entry.get("input_hash") != fingerprint(plot_state(study, model["id"], rubric)):
+            continue
+        records.append(dict(entry, subject_model=model["id"],
+                            scores=parse_plot_scores(entry["raw"], rubric)))
+    return {"rubric": rubric, "rubric_hash": saved["rubric_hash"], "records": records}
+
+
 def prepare(study, root):
     """Apply file-based reviews and precompute all page groups and counts."""
     reviews_path = root / "data/reviews.json"
@@ -303,6 +368,7 @@ def prepare(study, root):
         interpretation if interpretation and interpretation.get("basis_hash") == page["interpretation_basis"]
         else None
     )
+    page["mission_aspiration"] = prepared_plot(study, root)
     save_json(root / "public/study.json", page)
 
 

@@ -2,8 +2,10 @@
 
 ## Current exhibit
 
+- The published exhibit is available at [https://duke-aipi-han.github.io/XAI-ElectricSheep/](https://duke-aipi-han.github.io/XAI-ElectricSheep/).
 - [interpretation.json](interpretation.json) is the current authored interpretation for the nine questions shown on the page. It is included in the exhibit only while its recorded basis matches the displayed dataset and classifications.
 - [rubric-refinement.md](rubric-refinement.md) documents the latest category changes for purpose, likely errors, wants, and dreams, including the current counts and confidence caveats.
+- [mission-aspiration.md](mission-aspiration.md) documents the page's dedicated two-axis ratings, model scores, confidence, and limits.
 - [classification-results.md](classification-results.md) preserves the first classification pass and explains how its labels differ from the current exhibit.
 
 ## Study history

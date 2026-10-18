@@ -41,6 +41,31 @@ export type Interpretation = {
     rows: { question_id: string; label: string; title: string }[];
   };
 };
+export type PlotAxisScore = {
+  score: number;
+  normalized_score: number;
+  confidence: number | null;
+  probabilities: Record<string, number>;
+};
+export type MissionAspirationData = {
+  rubric: {
+    rubric_version: string;
+    axes: Record<"mission" | "aspiration", {
+      question_id: string;
+      title: string;
+      definition: string;
+      question: { type: "score"; criteria: string[] };
+    }>;
+  };
+  rubric_hash: string;
+  records: {
+    subject_model: string;
+    source_record_ids: string[];
+    scored_at: string;
+    model: string;
+    scores: Record<"mission" | "aspiration", PlotAxisScore>;
+  }[];
+};
 export type Study = {
   id: string;
   mode: string;
@@ -59,6 +84,7 @@ export type Study = {
   classified_count: number;
   reviewed_count: number;
   interpretation: Interpretation | null;
+  mission_aspiration?: MissionAspirationData | null;
   question_comparisons: Record<string, Comparison>;
   question_groups: Record<string, { label: string; record_ids: string[] }[]>;
   classification_groups?: Record<
